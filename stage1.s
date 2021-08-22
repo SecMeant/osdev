@@ -12,22 +12,34 @@ start:
 	call puts
 	add sp, 2
 
+	call load_stage2
+
+stage2_fail:
+	; we should never reach here
+	push stage2_fail_msg
+	call puts
+	add sp, 2
+
 	jmp $
 
 load_stage2:
-	mov ax, 0x2000
+	; load stage 2 into 0x0000:0x7e00
+	xor ax, ax
 	mov es, ax
-	xor bx, bx
+	mov bx, 0x7e00
 
-	mov ah, 2
-	mov al, 2
+	mov ah, 2      ; read sectors into memory
+	mov al, 1      ; how many sectors of stage 2
 	mov ch, 0
-	mov cl, 2
+	mov cl, 2      ; read from 2nd sector (1st contains this code)
 	mov dh, 0
 
 	int 0x13
 
-	jmp word 0x2000:0x0000
+	jc stage2_fail
+
+	; jump to second stage
+	jmp stage2
 
 putc:
 	push bp
@@ -76,7 +88,11 @@ puts:
 	ret
 
 msg: db 'Loading second stage of bootloader... ', 0xd, 0xa, 0
+stage2_fail_msg: db 'Loading second stage of bootloader FAILED!', \
+                     0xd, 0xa, 0
 
 times 510-($-$$) db 0
 db 0x55
 db 0xaa
+
+stage2:
