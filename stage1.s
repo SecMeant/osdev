@@ -10,6 +10,15 @@ start:
 	mov al, 3 ; 80x25 8x8 640x200
 	int 0x10
 
+	jmp 0:reset_cs
+reset_cs:
+
+	mov bx, 0
+	mov ds, bx
+	mov ss, bx
+
+	mov sp, 0x9000
+
 	push msg
 	call puts
 	add sp, 2
