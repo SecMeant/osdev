@@ -1,5 +1,7 @@
 [bits 16]
 
+%include "boot_info.inc"
+
 [org 0x7c00]
 jmp word 0x0000:start
 
@@ -23,13 +25,12 @@ stage2_fail:
 	jmp $
 
 load_stage2:
-	; load stage 2 into 0x0000:0x7e00
-	xor ax, ax
+	mov ax, STAGE2_LOAD_SEG
 	mov es, ax
-	mov bx, 0x7e00
+	mov bx, STAGE2_LOAD_ADDR
 
 	mov ah, 2      ; read sectors into memory
-	mov al, 1      ; how many sectors of stage 2
+	mov al, LOADER_SEC_SIZE
 	mov ch, 0
 	mov cl, 2      ; read from 2nd sector (1st contains this code)
 	mov dh, 0
