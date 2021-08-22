@@ -1,7 +1,14 @@
 AS:=nasm
 WC:=/usr/bin/wc
 
+QEMU_DEBUG:=0
+QEMU_OPTS:=
+
 PHONY:=
+
+ifeq ($(QEMU_DEBUG),1)
+	QEMU_OPTS+=-S -s 
+endif
 
 all: stage1
 
@@ -20,6 +27,6 @@ clean:
 
 PHONY += run
 run: stage1
-	qemu-system-x86_64 -hda stage1
+	qemu-system-x86_64 -hda stage1 $(QEMU_OPTS)
 
 .PHONY:= $(PHONY)
