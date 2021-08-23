@@ -2,12 +2,11 @@
 
 [org 0x7e00]
 stage2:
-	;push stage2_win
-	;call puts
-	;add sp, 2
+	push stage2_win
+	call puts16
+	add sp, 2
 
 	cli
-	lea ax, [gdt_addr]
 	lgdt [gdt_addr]
 
 	mov eax, cr0
@@ -18,7 +17,7 @@ stage2:
 
 	jmp 0x8:start32
 
-putc:
+putc16:
 	push bp
 	mov bp, sp
 
@@ -42,7 +41,7 @@ putc:
 	pop bp
 	ret
 
-puts:
+puts16:
 	push bp
 	mov bp, sp
 
@@ -55,7 +54,7 @@ puts:
 	cmp al, 0
 	jz puts_str_end
 	push ax
-	call putc
+	call putc16
 	add sp, 2
 	jmp puts_print_loop
 
@@ -83,19 +82,86 @@ dd (2 << 8)|(1 << 12)|(1<<15)|(0xf<<16)|(1<<22)|(1<<23)
 
 gdt_end:
 
-stage2_win: db 'Second stage loaded!', 0xd, 0xa, 0
-
 times (32 - ($ - $$) % 32) db 0xcc
 [bits 32]
+
+%define STAGE_POS (0xb8000 + 0x140)
+
 start32:
 	mov ax, 0x10
 	mov ds, ax
 	mov es, ax
 	mov ss, ax
 
-	lea eax, [0xb8000]
-	mov dword [eax], 0x41414141
+	mov ebp, 0x9000
+	mov esp, 0x9000
 
+	push 0
+	call set_stage
+	add esp, 4
+
+	call print_stage
+
+	call check_a20
+	test eax, eax
+	je a20_disabled
+
+	push 1
+	call set_stage
+	add esp, 4
+	call print_stage
+
+	a20_disabled:
 	jmp $
 
+check_a20:
+	pushad
+	mov edi, 0x112345
+	mov esi, 0x012345
+	mov [edi], edi
+	mov [esi], esi
+	cmpsd
+	popad
+	mov eax, 1
+	je check_a20_disabled
+	ret
+	check_a20_disabled:
+		xor eax, eax
+		ret
+
+; void print_stage(void)
+print_stage:
+	push ebp
+	mov ebp, esp
+
+	lea eax, [stage]
+	mov eax, [eax]
+	and eax, 0xff      ; leave only ascii of stage (clear color bits)
+	or eax, 0x00000200 ; black bg, green font
+
+	lea edx, [STAGE_POS]
+	mov dword [edx], eax
+
+	mov esp, ebp
+	pop ebp
+	ret
+
+; void set_stage(u32 stage);
+set_stage:
+	push ebp
+	mov ebp, esp
+
+	mov eax, [ebp+8]
+	add eax, 0x30
+	lea edx, [stage]
+	mov [edx], eax
+
+	mov esp, ebp
+	pop ebp
+	ret
+
+stage2_win: db 'Second stage loaded!', 0xd, 0xa, 0
+msg_a20_enabled: db 'A20 line is enabled', 0xd, 0xa, 0
+msg_a20_disabled: db 'A20 line is disabled', 0xd, 0xa, 0
+stage: dd 0 ; filled at runtime
 
