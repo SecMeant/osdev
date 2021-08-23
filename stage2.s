@@ -102,6 +102,11 @@ start32:
 
 	call print_stage
 
+	; Enable A20 line (doesnt work on very old machines I dont care)
+	in al, 0x92
+	or al, 2
+	out 0x92, al
+
 	call check_a20
 	test eax, eax
 	je a20_disabled
