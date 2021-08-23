@@ -2,9 +2,9 @@
 
 [org 0x7e00]
 stage2:
-	push stage2_win
-	call puts16
-	add sp, 2
+	;push stage2_win
+	;call puts16
+	;add sp, 2
 
 	cli
 	lgdt [gdt_addr]
@@ -45,20 +45,20 @@ puts16:
 	push bp
 	mov bp, sp
 
-	puts_print_loop:
+	.print_loop:
 	mov si, [bp+4]
 	xor al, al
 	mov al, [si]
 	add si, 1
 	mov [bp+4], si
 	cmp al, 0
-	jz puts_str_end
+	jz .str_end
 	push ax
 	call putc16
 	add sp, 2
-	jmp puts_print_loop
+	jmp .print_loop
 
-	puts_str_end:
+	.str_end:
 	mov sp, bp
 	pop bp
 	ret
@@ -109,14 +109,32 @@ start32:
 
 	call check_a20
 	test eax, eax
-	je a20_disabled
+	je .longmode_setup_failed
 
 	push 1
 	call set_stage
 	add esp, 4
 	call print_stage
 
-	a20_disabled:
+	call check_cpuid_available
+	test eax, eax
+	je .longmode_setup_failed
+
+	push 2
+	call set_stage
+	add esp, 4
+	call print_stage
+
+	call check_longmode_available
+	test eax, eax
+	je .longmode_setup_failed
+
+	push 3
+	call set_stage
+	add esp, 4
+	call print_stage
+
+	.longmode_setup_failed:
 	jmp $
 
 check_a20:
@@ -128,9 +146,9 @@ check_a20:
 	cmpsd
 	popad
 	mov eax, 1
-	je check_a20_disabled
+	je .a20_disabled
 	ret
-	check_a20_disabled:
+	.a20_disabled:
 		xor eax, eax
 		ret
 
@@ -163,6 +181,39 @@ set_stage:
 
 	mov esp, ebp
 	pop ebp
+	ret
+
+check_cpuid_available:
+	pushfd
+	pop eax
+
+	; save old flags to ecx
+	mov ecx, eax
+
+	; flip ID bit
+	xor eax, 1 << 21
+
+	push eax
+	popfd
+
+	pushfd
+	pop eax
+
+	; restore old flags
+	push ecx
+	popfd
+
+	cmp eax, ecx
+	mov eax, 0
+	setne al
+	ret
+
+check_longmode_available:
+	mov eax, 0x80000000
+	cpuid
+	cmp eax, 0x80000001
+	mov eax, 0
+	setge al
 	ret
 
 stage2_win: db 'Second stage loaded!', 0xd, 0xa, 0
