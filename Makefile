@@ -1,3 +1,4 @@
+CC:=gcc
 AS:=nasm
 WC:=/usr/bin/wc
 
@@ -17,7 +18,7 @@ ifeq ($(QEMU_DEBUG),1)
 	QEMU_OPTS+=-S -s 
 endif
 
-all: stage1 stage2 floppy.bin
+all: stage1 stage2 kernel64 floppy.bin
 
 stage1: stage1.s boot_info.inc
 	$(AS) stage1.s -o _stage1
@@ -31,19 +32,26 @@ stage1: stage1.s boot_info.inc
 stage2: stage2.s
 	$(AS) stage2.s -o stage2
 
-boot_info.inc: stage2
+boot_info.inc: stage2 kernel64
 	echo '%define STAGE2_LOAD_ADDR $(STAGE2_LOAD_ADDR)' > boot_info.inc
 	echo '%define STAGE2_LOAD_SEG  $(STAGE2_LOAD_SEG)' >> boot_info.inc
 
 	echo -n '%define LOADER_SEC_SIZE ' >> boot_info.inc
 	expr \( `stat --format="%s" stage2` + 511 \) / 512 >> boot_info.inc
 
-floppy.bin: stage1 stage2
-	cat stage1 stage2 > floppy.bin
+	echo -n '%define KERNEL64_SEC_SIZE ' >> boot_info.inc
+	expr \( `stat --format="%s" kernel64` + 511 \) / 512 >> boot_info.inc
+
+kernel64: kernel64.c
+	$(CC) kernel64.c -o kernel64 -nostdlib -O2 -fPIE -fPIC -g0 -fno-exceptions -Wall -Wextra
+	strip kernel64
+
+floppy.bin: stage1 stage2 kernel64
+	cat stage1 stage2 kernel64 > floppy.bin
 
 PHONY += clean
 clean:
-	@rm -f stage1 stage2 boot_info.inc floppy.bin
+	@rm -f stage1 stage2 boot_info.inc kernel64 floppy.bin
 
 PHONY += run
 run: floppy.bin

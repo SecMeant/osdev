@@ -281,15 +281,188 @@ PDPTE:
 dq 1 | 1 << 1 | 1 << 7 | 0 << 30
 times 511 dq 0
 
+%define KERNEL64_BASE 0x10000
+
 start64:
 [bits 64]
-	mov rax, 0xb8000
-	mov rdx, 0x4141414141414141
-	mov [rax], rdx
+	add rsp, 7
+	and rsp, 0xfffffffffffffff8
+	mov rbp, rsp
+
+	;xor rax, rax
+	;.debug:
+	;test rax, rax
+	;jz .debug
+
+	; e_shoff
+	mov r9, [kernel + 0x28]
+
+	; e_shentsize
+	mov ax, word [kernel + 0x3a]
+	mov r10, rax
+
+	; e_shnum
+	mov ax, word [kernel + 0x3c]
+	mov r11, rax
+
+	; allocate space for section header
+	; and for variables
+	sub rsp, 0x40 + 0x18
+
+	mov [rbp - 0x48], r9  ; offset to current section header
+	mov [rbp - 0x50], r10 ; section size (const)
+	mov [rbp - 0x58], r11 ; section count (how much more to read)
+
+	;
+	; map kernel
+	;
+
+	lea rdi, [rbp - 0x40]
+	lea rsi, [r9 + kernel]
+	mov rdx, r10
+	call memcpy64
+
+	lea rdi, [rbp - 0x40]
+	mov rsi, r10
+	call memcheckzeroed
+	test rax, rax
+	jnz .mapkernelfailed
+
+	sub qword [rbp - 0x58], 1
+	jz .mapkernelend
+
+	.section_loop:
+	mov rax, [rbp - 0x50]
+	add [rbp - 0x48], rax
+	mov r9,  [rbp - 0x48]
+
+	; read section header
+	lea rdi, [rbp - 0x40]
+	lea rsi, [r9 + kernel]
+	mov rdx, [rbp - 0x50]
+	call memcpy64
+
+	; copy section into memory
+	lea rdi, [rbp - 0x40]
+	mov rsi, kernel
+	mov rdx, KERNEL64_BASE
+	call mapsection
+
+	test rax, rax
+	jnz .mapkernelfailed
+
+	sub qword [rbp - 0x58], 1
+	jnz .section_loop
+
+	.mapkernelend:
+
+	; e_entry
+	mov rax, [kernel + 0x18]
+	add rax, KERNEL64_BASE
+	call rax
 	jmp $
+
+	.mapkernelfailed:
+	jmp $
+
+; void memcpy(rdi: char *dest, rsi: char *source, rdx: u64 size)
+memcpy64:
+	test rdx, rdx
+	jz .exit
+
+	.copy_loop:
+	mov byte al, [rsi]
+	mov byte [rdi], al
+
+	inc rsi
+	inc rdi
+	dec rdx
+	jnz .copy_loop
+
+	.exit:
+	ret
+
+; u64 memcpy(rdi: char *m1, rsi: char *m2, rdx: u64 size)
+; ret == 0 if mem is equal
+; ret != 0 if mem is differs
+memcmp64:
+	xor rax, rax
+	test rdx, rdx
+	jz .exit
+
+	.cmp_loop:
+	mov byte al, [rdi]
+	mov byte cl, [rsi]
+	sub al, cl
+	jnz .exit
+
+	inc rsi
+	inc rdi
+	dec rdx
+	jnz .cmp_loop
+
+	.exit:
+	ret
+
+; u64 memcheckzeroed(rdi: char *m, rsi: u64 size)
+; ret == 0 memory is zeroed
+; ret != 0 memory is not zeroed
+memcheckzeroed:
+	xor rax, rax
+	test rsi, rsi
+	jz .exit
+
+	.cmp_loop:
+	mov byte al, [rdi]
+	test al, al
+	jnz .exit
+
+	inc rdi
+	dec rsi
+	jnz .cmp_loop
+
+	.exit:
+	ret
+
+; u64 mapsection(rdi: void *section_header, rsi: void *elf, rdx: void *base)
+; ret == 0 success
+; ret != 0 failed (for some reason ;])
+mapsection:
+	mov r8,  [rdi + 0x10] ; sh_addr
+	mov r9,  [rdi + 0x18] ; sh_offset
+	mov rcx, [rdi + 0x20] ; sh_size
+	mov dword eax, [rdi + 0x04] ; sh_type
+
+	add r8, rdx ; actual (virtual) address of the section
+	add r9, rsi ; address inside ELF to the section
+
+	mov rdi, r8
+	mov rsi, r9
+	mov rdx, rcx
+
+	cmp eax, 0x8 ; SHT_NOBITS (bss)
+	je .mapbss
+
+	call memcpy64
+	jmp .exit
+
+	.exit:
+	xor rax, rax
+	ret
+
+	.mapbss:
+	xor eax, eax
+	rep stosb
+	jmp .exit
+
 
 stage2_win: db 'Second stage loaded!', 0xd, 0xa, 0
 msg_a20_enabled: db 'A20 line is enabled', 0xd, 0xa, 0
 msg_a20_disabled: db 'A20 line is disabled', 0xd, 0xa, 0
 stage: dd 0 ; filled at runtime
+
+; Align kernel to 4kB
+times (4096 - ($ - $$ + 0x7e00) % 4096) db 0xcc
+kernel:
+; Build script will append 64bit elf of the kernel just after stage2
 

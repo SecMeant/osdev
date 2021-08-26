@@ -39,7 +39,7 @@ load_stage2:
 	mov bx, STAGE2_LOAD_ADDR
 
 	mov ah, 2      ; read sectors into memory
-	mov al, LOADER_SEC_SIZE
+	mov al, LOADER_SEC_SIZE + KERNEL64_SEC_SIZE
 	mov ch, 0
 	mov cl, 2      ; read from 2nd sector (1st contains this code)
 	mov dh, 0
