@@ -42,8 +42,9 @@ boot_info.inc: stage2 kernel64
 	echo -n '%define KERNEL64_SEC_SIZE ' >> boot_info.inc
 	expr \( `stat --format="%s" kernel64` + 511 \) / 512 >> boot_info.inc
 
-kernel64: kernel64.c
-	$(CC) kernel64.c -o kernel64 -nostdlib -O2 -fPIE -fPIC -g0 -fno-exceptions -Wall -Wextra
+kernel64: kernel64.rs
+	rustc kernel64.rs -C link-arg=-nostartfiles -C panic=abort -o kernel64
+	#$(CC) kernel64.c -o kernel64 -nostdlib -O2 -fPIE -fPIC -g0 -fno-exceptions -Wall -Wextra
 	strip kernel64
 
 floppy.bin: stage1 stage2 kernel64
