@@ -348,9 +348,6 @@ start64:
 	mov rdx, KERNEL64_BASE
 	call mapsection
 
-	test rax, rax
-	jnz .mapkernelfailed
-
 	sub qword [rbp - 0x58], 1
 	jnz .section_loop
 
@@ -424,9 +421,7 @@ memcheckzeroed:
 	.exit:
 	ret
 
-; u64 mapsection(rdi: void *section_header, rsi: void *elf, rdx: void *base)
-; ret == 0 success
-; ret != 0 failed (for some reason ;])
+; void mapsection(rdi: void *section_header, rsi: void *elf, rdx: void *base)
 mapsection:
 	mov r8,  [rdi + 0x10] ; sh_addr
 	mov r9,  [rdi + 0x18] ; sh_offset
@@ -443,11 +438,13 @@ mapsection:
 	cmp eax, 0x8 ; SHT_NOBITS (bss)
 	je .mapbss
 
+	cmp eax, 0x01 ; SHT_PROGBITS
+	jne .exit
+
 	call memcpy64
 	jmp .exit
 
 	.exit:
-	xor rax, rax
 	ret
 
 	.mapbss:
