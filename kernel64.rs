@@ -21,7 +21,6 @@ pub extern "C" fn _start() -> ! {
     static mut asdf : u64 = 0;
 
     unsafe {
-        *(0xb8000 as * mut u64) = 0x4141414141414141;
         asdf = 12;
         puts("Kernel successfuly loaded from ELF!");
     }
