@@ -4,7 +4,7 @@ WC:=/usr/bin/wc
 SUDO:=sudo
 
 QEMU_DEBUG:=0
-QEMU_OPTS:=
+QEMU_OPTS:=-no-reboot -no-shutdown -d int,cpu_reset
 
 TFTP_DIR:=/var/lib/tftpboot/
 
@@ -18,7 +18,7 @@ STAGE2_LOAD_ADDR:=0x7e00
 STAGE2_LOAD_SEG:=0x0000
 
 ifeq ($(QEMU_DEBUG),1)
-	QEMU_OPTS+=-S -s 
+	QEMU_OPTS+= -S -s 
 endif
 
 all: stage1 stage2 kernel64 floppy.bin
