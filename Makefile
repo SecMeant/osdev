@@ -1,9 +1,12 @@
 CC:=gcc
 AS:=nasm
 WC:=/usr/bin/wc
+SUDO:=sudo
 
 QEMU_DEBUG:=0
 QEMU_OPTS:=
+
+TFTP_DIR:=/var/lib/tftpboot/
 
 PHONY:=
 
@@ -57,5 +60,10 @@ clean:
 PHONY += run
 run: floppy.bin
 	qemu-system-x86_64 -hda floppy.bin $(QEMU_OPTS)
+
+PHONY += install_tftp
+install_tftp: floppy.bin
+	@$(SUDO) cp $< "$(TFTP_DIR)"
+	@echo "(CP) $< $(TFTP_DIR)"
 
 .PHONY:= $(PHONY)
