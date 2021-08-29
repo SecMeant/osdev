@@ -46,7 +46,7 @@ boot_info.inc: stage2 kernel64
 	expr \( `stat --format="%s" kernel64` + 511 \) / 512 >> boot_info.inc
 
 kernel64: kernel64.rs
-	rustc kernel64.rs -C link-arg=-nostartfiles -C panic=abort -o kernel64
+	rustc kernel64.rs -C link-arg=-nostartfiles -C panic=abort -o kernel64 -C debuginfo=0 -C default-linker-libraries=off -C opt-level=3 -C overflow-checks=off -C relocation-model=pic
 	#$(CC) kernel64.c -o kernel64 -nostdlib -O2 -fPIE -fPIC -g0 -fno-exceptions -Wall -Wextra
 	strip kernel64
 
