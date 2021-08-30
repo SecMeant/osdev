@@ -83,7 +83,7 @@ gdt_end:
 
 gdt64_addr:
 dw (gdt64_end - gdt64) - 1
-dd gdt64
+dq gdt64
 
 gdt64:
 ; null segment
