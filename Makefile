@@ -52,7 +52,7 @@ boot_info.inc: stage2 kernel64
 	$(Q)echo -n '%define KERNEL64_SEC_SIZE ' >> boot_info.inc
 	$(Q)expr \( `stat --format="%s" kernel64` + 511 \) / 512 >> boot_info.inc
 
-kernel64: kernel64.c textmode.c textmode.h assert.h types.h Makefile
+kernel64: libkernel64.a
 	$(CC) kernel64.c textmode.c -o kernel64 -nostdlib -O2 -fPIE -fPIC -g0 -fno-exceptions -Wall -Wextra -nostdinc -fno-asynchronous-unwind-tables -static
 
 libkernel64.a: kernel/Cargo.toml kernel/Cargo.lock kernel/src/* FORCE
