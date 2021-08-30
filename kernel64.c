@@ -1,6 +1,10 @@
+#include "textmode.h"
+
 void _start(void)
 {
-	*(unsigned long long*)0xb8000 = 0x4141414141414141ULL;
+	TxmBuf buf = make_early_txmbuf();
 
-	for (volatile int i = 0; i == 0;) {}
+	txm_puts(&buf, "Kernel successfuly loaded from ELF!");
+
+	while (1) {}
 }
