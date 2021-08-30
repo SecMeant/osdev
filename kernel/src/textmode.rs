@@ -88,6 +88,7 @@ impl OutputBuffer for TxmBuf {
 }
 
 pub fn make_early_txmbuf() -> TxmBuf {
+
     TxmBuf {
         buf: unsafe { &mut *(GPUBUF as * mut [[TxmColor; GPUBUF_SCREEN_WIDTH]; GPUBUF_SCREEN_HEIGHT]) },
         curx: 0,
