@@ -1,5 +1,6 @@
 CC:=gcc
 AS:=nasm
+LD:=ld
 WC:=/usr/bin/wc
 SUDO:=sudo
 
@@ -54,18 +55,25 @@ boot_info.inc: stage2 kernel64
 kernel64: kernel64.c textmode.c textmode.h assert.h types.h Makefile
 	$(CC) kernel64.c textmode.c -o kernel64 -nostdlib -O2 -fPIE -fPIC -g0 -fno-exceptions -Wall -Wextra -nostdinc -fno-asynchronous-unwind-tables -static
 
-	$(Q)strip kernel64
+libkernel64.a: kernel/Cargo.toml kernel/Cargo.lock kernel/src/* FORCE
+	$(Q)cd kernel && cargo rustc --lib --release -vv -- -C soft-float -C lto --emit link=../$@
 
-	$(Q)objcopy -R .note.* kernel64
-	$(Q)objcopy -R .comment kernel64
+kernel64: kernel/x86_64.ld libkernel64.a
+	$(LD) --gc-sections -T kernel/x86_64.ld -o $@ libkernel64.a
 
 floppy.bin: stage1 stage2 kernel64
 	cat stage1 stage2 kernel64 > floppy.bin
 	$(Q)$(MAKE) -s stats
 
+PHONY += stats
+stats:
+	$(Q)echo -e "\n\033[92mKernel ELF stats:\033[0m"
+	$(Q)size kernel64 --format=SysV
+
 PHONY += clean
 clean:
-	@rm -f stage1 stage2 boot_info.inc kernel64 floppy.bin
+	$(Q)rm -f stage1 stage2 boot_info.inc kernel64 libkernel64.a floppy.bin
+	$(Q)cd kernel && cargo clean
 
 PHONY += run
 run: floppy.bin
@@ -73,12 +81,9 @@ run: floppy.bin
 
 PHONY += install_tftp
 install_tftp: floppy.bin
-	@$(SUDO) cp $< "$(TFTP_DIR)"
-	@echo "(CP) $< $(TFTP_DIR)"
+	$(Q)$(SUDO) cp $< "$(TFTP_DIR)"
+	$(Q)echo "(CP) $< $(TFTP_DIR)"
 
-PHONY += stats
-stats:
-	@echo -e "\n\033[92mKernel ELF stats:\033[0m"
-	$(Q)size kernel64 --format=SysV
+FORCE:
 
 .PHONY:= $(PHONY)

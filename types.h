@@ -13,4 +13,3 @@ COMPILE_BUG_ON(sizeof(u16) != 2);
 COMPILE_BUG_ON(sizeof(u32) != 4);
 COMPILE_BUG_ON(sizeof(u64) != 8);
 
-

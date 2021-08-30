@@ -3,3 +3,4 @@ stage2
 floppy.bin
 boot_info.inc
 kernel64
+libkernel64.a
