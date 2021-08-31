@@ -15,17 +15,15 @@ pub extern "C" fn kmain(kbase: *const u8, pml4: *mut vm::PML4) -> ! {
 
     let mut txm = make_early_txmbuf();
 
-    unsafe {
-        txm.puts("Kernel successfuly loaded from ELF!");
+    txm.puts("Kernel successfuly loaded from ELF!");
 
-        txm.print("Kernel relocated @ 0x");
-        txm.print_hex(kbase as u64);
-        txm.line_feed();
+    txm.print("Kernel relocated @ 0x");
+    txm.print_hex(kbase as u64);
+    txm.line_feed();
 
-        txm.print("PML4 allocated @ 0x");
-        txm.print_hex(pml4 as u64);
-        txm.line_feed();
-    }
+    txm.print("PML4 allocated @ 0x");
+    txm.print_hex(pml4 as u64);
+    txm.line_feed();
 
     loop {}
 }
