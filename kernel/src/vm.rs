@@ -40,7 +40,7 @@ pub trait PML4EImpl {
     fn is_pwt(&self)       -> bool; // page write-through
     fn is_pcd(&self)       -> bool; // page-level cache disable
     fn is_accessed(&self)  -> bool;
-    fn get_pdpt(&self)     -> Option<&mut PDPTE>;
+    fn get_pdpt(&self)     -> Option<&mut PDPT>;
     fn is_nxe(&self)       -> bool; // execute disable
 }
 
@@ -69,13 +69,13 @@ impl PML4EImpl for PML4E {
         (self.value >> 5) & 1 != 0
     }
 
-    fn get_pdpt(&self) -> Option<&mut PDPTE> {
+    fn get_pdpt(&self) -> Option<&mut PDPT> {
         match self.is_present() {
             true => {
                 let addr = (self.value & PAGING_CHILD_ADDR_MASK) >> PAGING_CHILD_ADDR_SHIFT;
 
                 unsafe {
-                    Some(&mut *(addr as *mut PDPTE))
+                    Some(&mut *(addr as *mut PDPT))
                 }
             },
 
@@ -104,7 +104,7 @@ pub trait PDPTEImpl {
     fn is_pcd(&self)         -> bool; // page-level cache disable
     fn is_accessed(&self)    -> bool;
     fn is_mapping_1gb(&self) -> bool;
-    fn get_pdpt(&self)       -> Option<&mut PD>;
+    fn get_pd(&self)       -> Option<&mut PD>;
     fn is_nxe(&self)         -> bool; // execute disable
 }
 
@@ -137,7 +137,7 @@ impl PDPTEImpl for PDPTE {
         PAGE_SIZE != 4096
     }
 
-    fn get_pdpt(&self) -> Option<&mut PD> {
+    fn get_pd(&self) -> Option<&mut PD> {
         match self.is_present() {
             true => {
                 let addr = (self.value & PAGING_CHILD_ADDR_MASK) >> PAGING_CHILD_ADDR_SHIFT;
@@ -172,7 +172,7 @@ pub trait PDEImpl {
     fn is_pcd(&self)         -> bool; // page-level cache disable
     fn is_accessed(&self)    -> bool;
     fn is_mapping_1gb(&self) -> bool;
-    fn get_pdpt(&self)       -> Option<&mut PT>;
+    fn get_pt(&self)       -> Option<&mut PT>;
     fn is_nxe(&self)         -> bool; // execute disable
 }
 
@@ -205,7 +205,7 @@ impl PDEImpl for PDE {
         PAGE_SIZE != 4096
     }
 
-    fn get_pdpt(&self) -> Option<&mut PT> {
+    fn get_pt(&self) -> Option<&mut PT> {
         match self.is_present() {
             true => {
                 let addr = (self.value & PAGING_CHILD_ADDR_MASK) >> PAGING_CHILD_ADDR_SHIFT;
@@ -240,7 +240,7 @@ pub trait PTEImpl {
     fn is_pcd(&self)         -> bool; // page-level cache disable
     fn is_accessed(&self)    -> bool;
     fn is_mapping_1gb(&self) -> bool;
-    fn get_pdpt(&self)       -> Option<&mut VMPage>;
+    fn get_real_page(&self)       -> Option<&mut VMPage>;
     fn is_nxe(&self)         -> bool; // execute disable
 }
 
@@ -273,7 +273,7 @@ impl PTEImpl for PTE {
         PAGE_SIZE != 4096
     }
 
-    fn get_pdpt(&self) -> Option<&mut VMPage> {
+    fn get_real_page(&self) -> Option<&mut VMPage> {
         match self.is_present() {
             true => {
                 let addr = (self.value & PAGING_CHILD_ADDR_MASK) >> PAGING_CHILD_ADDR_SHIFT;
