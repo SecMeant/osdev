@@ -17,11 +17,9 @@ const GPUBUF_SCREEN_HEIGHT :usize = 25;
 const GPUBUF_CHAR_BG_BLACK :u8    = 0x0f;
 
 #[repr(packed)]
-
 // Disbale warning that the field is never read.
 // This type is a view over VGA text mode buffer.
 #[allow(dead_code)]
-
 pub struct TxmColor {
     ch: u8,
     bg: u8,

@@ -4,6 +4,8 @@
 
 mod memory;
 mod textmode;
+mod x86_64;
+mod vm;
 
 use textmode::{make_early_txmbuf, OutputBuffer};
 use core::panic::PanicInfo;
