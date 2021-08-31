@@ -354,6 +354,8 @@ start64:
 	.mapkernelend:
 
 	; e_entry
+	mov rdi, KERNEL64_BASE
+	mov rsi, PML4
 	mov rax, [kernel + 0x18]
 	add rax, KERNEL64_BASE
 	call rax

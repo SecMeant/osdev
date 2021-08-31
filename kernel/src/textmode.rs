@@ -4,6 +4,8 @@ use core::ptr::write_volatile;
 pub trait OutputBuffer {
     fn putc(&mut self, c: char);
     fn puts(&mut self, s: &str);
+    fn print(&mut self, s: &str);
+    fn print_hex(&mut self, n: u64);
     fn line_feed(&mut self);
 }
 
@@ -33,7 +35,7 @@ pub struct TxmBuf {
 
 impl TextModeBuffer for TxmBuf {
     fn clear_cur_line(&mut self) {
-        for (i, c) in self.buf[self.cury].iter_mut().enumerate() {
+        for (i, c) in self.buf[self.cury].iter_mut().enumerate().skip(self.curx) {
 
             if i >= GPUBUF_SCREEN_WIDTH {
                 break;
@@ -74,6 +76,27 @@ impl OutputBuffer for TxmBuf {
         }
 
         self.line_feed();
+    }
+
+    fn print(&mut self, s: &str) {
+
+        self.clear_cur_line();
+
+        for c in s.chars() {
+            self.putc(c);
+        }
+    }
+
+    fn print_hex(&mut self, mut n: u64) {
+
+        self.clear_cur_line();
+
+        let digits = "0123456789ABCDEF";
+
+        for _ in 0..16 {
+            self.putc(digits.as_bytes()[(n >> 60) as usize] as char);
+            n <<= 4;
+        }
     }
 
     fn line_feed(&mut self) {
