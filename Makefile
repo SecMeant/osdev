@@ -28,26 +28,26 @@ else
 	Q:=@
 endif
 
-all: stage1 stage2 kernel64 floppy.bin
+all: stage1.o stage2.o kernel64 floppy.bin
 
-stage1: stage1.s boot_info.inc
-	$(AS) stage1.s -o _stage1
-	$(Q)if [ `stat --format="%s" _stage1` -ne 512 ]; then \
-		echo >&2 "Check size for stage1 failed"; \
-		false;\
-	fi
+stage1.o: stage1.s boot_info.inc
+	$(AS) stage1.s -felf64 -o stage1.o
 
-	mv _stage1 stage1
+stage2.o: stage2.s
+	$(AS) stage2.s -felf64 -o stage2.o
 
-stage2: stage2.s
-	$(AS) stage2.s -o stage2
+gdt.o:
+	$(AS) gdt.s -felf64 -o gdt.o
 
-boot_info.inc: stage2 kernel64
+bootloader.bin: stage1.o stage2.o gdt.o
+	$(LD) -T bootloader.ld -o bootloader.bin
+
+boot_info.inc: stage2.o kernel64
 	$(Q)echo '%define STAGE2_LOAD_ADDR $(STAGE2_LOAD_ADDR)' > boot_info.inc
 	$(Q)echo '%define STAGE2_LOAD_SEG  $(STAGE2_LOAD_SEG)' >> boot_info.inc
 
 	$(Q)echo -n '%define LOADER_SEC_SIZE ' >> boot_info.inc
-	$(Q)expr \( `stat --format="%s" stage2` + 511 \) / 512 >> boot_info.inc
+	$(Q)expr \( `stat --format="%s" stage2.o` + 511 \) / 512 >> boot_info.inc
 
 	$(Q)echo -n '%define KERNEL64_SEC_SIZE ' >> boot_info.inc
 	$(Q)expr \( `stat --format="%s" kernel64` + 511 \) / 512 >> boot_info.inc
@@ -58,8 +58,8 @@ libkernel64.a: kernel/Cargo.toml kernel/Cargo.lock kernel/src/* FORCE
 kernel64: kernel/x86_64.ld libkernel64.a
 	$(LD) --gc-sections -T kernel/x86_64.ld -o $@ libkernel64.a
 
-floppy.bin: stage1 stage2 kernel64
-	cat stage1 stage2 kernel64 > floppy.bin
+floppy.bin: bootloader.bin kernel64
+	cat bootloader.bin kernel64 > floppy.bin
 	$(Q)$(MAKE) -s stats
 
 PHONY += stats
@@ -69,7 +69,7 @@ stats:
 
 PHONY += clean
 clean:
-	$(Q)rm -f stage1 stage2 boot_info.inc kernel64 libkernel64.a floppy.bin
+	$(Q)rm -f stage1.o stage2.o gdt.o bootloader.bin boot_info.inc kernel64 libkernel64.a floppy.bin
 	$(Q)cd kernel && cargo clean
 
 PHONY += run

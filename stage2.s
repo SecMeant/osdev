@@ -1,6 +1,10 @@
 [bits 16]
 
-[org 0x7e00]
+extern gdt_addr ,gdt ,gdt_end ,gdt64_addr ,gdt64 ,gdt64_end, kernel
+
+GLOBAL stage2
+
+SECTION .stage2
 stage2:
 	push stage2_win
 	call puts16
@@ -62,40 +66,6 @@ puts16:
 	mov sp, bp
 	pop bp
 	ret
-
-gdt_addr:
-dw gdt_end - gdt
-dd gdt
-
-; gdt alignment
-times (32 - ($ - $$) % 32) db 0xcc
-gdt:
-; null segment
-dd 0, 0
-
-dd 0xffff
-dd (10 << 8)|(1 << 12)|(1<<15)|(0xf<<16)|(1<<22)|(1<<23)
-
-dd 0xffff
-dd (2 << 8)|(1 << 12)|(1<<15)|(0xf<<16)|(1<<22)|(1<<23)
-
-gdt_end:
-
-gdt64_addr:
-dw (gdt64_end - gdt64) - 1
-dq gdt64
-
-gdt64:
-; null segment
-dd 0, 0
-
-dd 0xffff
-dd (10 << 8)|(1 << 12)|(1<<15)|(0xf<<16)|(1<<21)|(1<<23)
-
-dd 0xffff
-dd (2 << 8)|(1 << 12)|(1<<15)|(0xf<<16)|(1<<21)|(1<<23)
-
-gdt64_end:
 
 times (32 - ($ - $$) % 32) db 0xcc
 [bits 32]
@@ -460,8 +430,4 @@ msg_a20_enabled: db 'A20 line is enabled', 0xd, 0xa, 0
 msg_a20_disabled: db 'A20 line is disabled', 0xd, 0xa, 0
 stage: dd 0 ; filled at runtime
 
-; Align kernel to 4kB
-times (4096 - ($ - $$ + 0x7e00) % 4096) db 0xcc
-kernel:
-; Build script will append 64bit elf of the kernel just after stage2
 

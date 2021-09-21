@@ -1,10 +1,13 @@
-[bits 16]
+BITS 16
 
 %include "boot_info.inc"
 
-[org 0x7c00]
-jmp word 0x0000:start
+extern stage2
+GLOBAL start
 
+SECTION .stage1
+
+jmp word 0x0000:start
 start:
 	xor ax, ax
 	mov ds, ax
@@ -114,4 +117,3 @@ times 510-($-$$) db 0
 db 0x55
 db 0xaa
 
-stage2:
