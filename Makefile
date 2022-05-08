@@ -1,8 +1,12 @@
 CC:=gcc
+AR:=ar
 AS:=nasm
 LD:=ld
 WC:=/usr/bin/wc
 SUDO:=sudo
+
+CFLAGS:=-Wall -Wextra -nostdlib -fPIC -std=c17 \
+	-fno-stack-protector -O2 -mno-sse -mno-avx
 
 QEMU_DEBUG:=0
 QEMU_OPTS:=-no-reboot -no-shutdown -d int,cpu_reset
@@ -10,6 +14,9 @@ QEMU_OPTS:=-no-reboot -no-shutdown -d int,cpu_reset
 TFTP_DIR:=/var/lib/tftpboot/
 
 PHONY:=
+
+KERNEL_SRC:=kernel.c textmode.c
+KERNEL_OBJS:=$(patsubst %.c,%.o,$(KERNEL_SRC))
 
 # DO NOT CHANGE THIS!
 # For now this cannot be changed because stage2.s depends on this address.
@@ -29,6 +36,14 @@ else
 endif
 
 all: stage1 stage2 kernel64 floppy.bin
+
+depend: .depend
+
+.depend: $(KERNEL_SRC)
+	rm -f .depend
+	$(CC) $(CFLAGS) -MM $^ > .depend
+
+include .depend
 
 stage1: stage1.s boot_info.inc
 	$(AS) stage1.s -o _stage1
@@ -55,8 +70,11 @@ boot_info.inc: stage2 kernel64
 libkernel64.a: kernel/Cargo.toml kernel/Cargo.lock kernel/src/* FORCE
 	$(Q)cd kernel && cargo rustc --lib --release -vv -- -C soft-float -C lto --emit link=../$@
 
-kernel64: kernel/x86_64.ld libkernel64.a
-	$(LD) --gc-sections -T kernel/x86_64.ld -o $@ libkernel64.a
+%.o: %.c
+	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+
+kernel64: x86_64.ld $(KERNEL_OBJS) types.h
+	$(LD) --gc-sections -T x86_64.ld -o $@ $(KERNEL_OBJS)
 
 floppy.bin: stage1 stage2 kernel64
 	cat stage1 stage2 kernel64 > floppy.bin
@@ -70,7 +88,8 @@ stats:
 PHONY += clean
 clean:
 	$(Q)rm -f stage1 stage1.o stage2 stage2.o boot_info.inc kernel64 libkernel64.a floppy.bin
-	$(Q)cd kernel && cargo clean
+	$(Q)rm -f .depend
+	$(Q)rm -f $(KERNEL_OBJS)
 
 PHONY += run
 run: floppy.bin
