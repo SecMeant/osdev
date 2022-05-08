@@ -69,7 +69,7 @@ stats:
 
 PHONY += clean
 clean:
-	$(Q)rm -f stage1 stage2 boot_info.inc kernel64 libkernel64.a floppy.bin
+	$(Q)rm -f stage1 stage1.o stage2 stage2.o boot_info.inc kernel64 libkernel64.a floppy.bin
 	$(Q)cd kernel && cargo clean
 
 PHONY += run
