@@ -19,12 +19,12 @@ typedef struct {
 	GpuTextBuf *mem;
 	u64 curx;
 	u64 cury;
-} TxmBuf;
+} txmbuf;
 
-void txm_putc(TxmBuf *buf, char ch);
-void txm_print(TxmBuf *buf, char *s);
-void txm_print_hex(TxmBuf *buf, u64 v);
-void txm_line_feed(TxmBuf *buf);
-void txm_clear_cur_line(TxmBuf *buf);
-TxmBuf make_early_txmbuf(void);
+void txm_putc(txmbuf *buf, char ch);
+void txm_print(txmbuf *buf, char *s);
+void txm_print_hex(txmbuf *buf, u64 v);
+void txm_line_feed(txmbuf *buf);
+void txm_clear_cur_line(txmbuf *buf);
+txmbuf make_early_txmbuf(void);
 

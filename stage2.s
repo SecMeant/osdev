@@ -1,10 +1,29 @@
 [bits 16]
 
+%define KERNEL64_BASE 0x100000
+%define KERNEL64_HEADER_ES 0x7f90
+%define KERNEL64_HEADER_DI 0x0000
+%define KERNEL64_HEADER ((KERNEL64_HEADER_ES << 4) | KERNEL64_HEADER_DI)
+%define RAM_INFO_MAX_ENTRIES 64
+%define SMAP 0x534d4150
+
 [org 0x7e00]
 stage2:
 	push stage2_win
 	call puts16
 	add sp, 2
+
+	mov ax, KERNEL64_HEADER_ES + 1
+	mov es, ax
+	mov di, KERNEL64_HEADER_DI
+
+	call detect_mem_e820
+	mov ax, 24 * RAM_INFO_MAX_ENTRIES
+	xchg ax, di
+	xor dx, dx
+	mov bx, 24
+	div bx
+	mov [es:di], ax
 
 	cli
 	lgdt [gdt_addr]
@@ -62,6 +81,42 @@ puts16:
 	mov sp, bp
 	pop bp
 	ret
+
+; This function detects memory using INT 0x15, EAX=0xE820 filling info_array
+; and returning how many entries for the array are valid.
+;
+; void detect_mem_e820(
+;	struct ram_info_entry *info_array, // ES:DI
+;	u64 size,
+;	u64 *valid_entries
+;)
+detect_mem_e820:
+	xor ebx, ebx
+	mov edx, SMAP
+	mov eax, 0xe820
+	mov ecx, 24
+
+.detect_mem_e820_loop:
+	int 0x15
+
+	jc .detect_mem_e820_failed
+
+	cmp eax, SMAP
+	jne .detect_mem_e820_failed
+
+	test ebx, ebx
+	jz .detect_mem_e820_loop_end
+
+	add di, 24
+	mov eax, 0xe820
+	mov ecx, 24
+	jmp .detect_mem_e820_loop
+
+.detect_mem_e820_loop_end:
+	ret
+
+.detect_mem_e820_failed:
+	jmp $
 
 gdt_addr:
 dw gdt_end - gdt
@@ -159,7 +214,7 @@ start32:
 	call print_stage
 
 	mov eax, cr4
-	or eax, 1 << 5
+	or eax, 1 << 5 ; Enable PAE
 	mov cr4, eax
 
 	push 5
@@ -281,8 +336,6 @@ PDPTE:
 dq 1 | 1 << 1 | 1 << 7 | 0 << 30
 times 511 dq 0
 
-%define KERNEL64_BASE 0x10000
-
 start64:
 [bits 64]
 	add rsp, 7
@@ -353,13 +406,14 @@ start64:
 
 	.mapkernelend:
 
+	mov rdi, KERNEL64_HEADER
+	mov qword [rdi], KERNEL64_BASE
+	mov qword [rdi + 8], PML4
+
 	; e_entry
-	mov rdi, KERNEL64_BASE
-	mov rsi, PML4
 	mov rax, [kernel + 0x18]
 	add rax, KERNEL64_BASE
 	call rax
-	jmp $
 
 	.mapkernelfailed:
 	jmp $
@@ -453,7 +507,6 @@ mapsection:
 	xor eax, eax
 	rep stosb
 	jmp .exit
-
 
 stage2_win: db 'Second stage loaded!', 0xd, 0xa, 0
 msg_a20_enabled: db 'A20 line is enabled', 0xd, 0xa, 0

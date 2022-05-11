@@ -1,6 +1,6 @@
 #include "textmode.h"
 
-void txm_putc(TxmBuf *buf, char ch)
+void txm_putc(txmbuf *buf, char ch)
 {
 	(*buf->mem)[buf->cury][buf->curx].ch = ch;
 	(*buf->mem)[buf->cury][buf->curx].bg = GPUBUF_CHAR_BG_BLACK;
@@ -15,7 +15,7 @@ void txm_putc(TxmBuf *buf, char ch)
 	}
 }
 
-void txm_clear_cur_line(TxmBuf *buf)
+void txm_clear_cur_line(txmbuf *buf)
 {
 	for (int i = 0; i < GPUBUF_SCREEN_WIDTH; ++i) {
 		(*buf->mem)[buf->cury][i].ch = ' ';
@@ -23,17 +23,15 @@ void txm_clear_cur_line(TxmBuf *buf)
 	}
 }
 
-void txm_print(TxmBuf *buf, char *s)
+void txm_print(txmbuf *buf, char *s)
 {
-	txm_clear_cur_line(buf);
-
 	while (*s != 0) {
 		txm_putc(buf, *s);
 		++s;
 	}
 }
 
-void txm_print_hex(TxmBuf *buf, u64 v)
+void txm_print_hex(txmbuf *buf, u64 v)
 {
 	char digits[] = "0123456789ABCDEF";
 
@@ -43,7 +41,7 @@ void txm_print_hex(TxmBuf *buf, u64 v)
 	}
 }
 
-void txm_line_feed(TxmBuf *buf)
+void txm_line_feed(txmbuf *buf)
 {
 	buf->curx = 0;
 	++buf->cury;
@@ -52,9 +50,9 @@ void txm_line_feed(TxmBuf *buf)
 		buf->cury = 0;
 }
 
-TxmBuf make_early_txmbuf(void)
+txmbuf make_early_txmbuf(void)
 {
-	TxmBuf ret;
+	txmbuf ret;
 	ret.mem = (void*) GPUBUF;
 	ret.cury = 3;
 	ret.curx = 0;
