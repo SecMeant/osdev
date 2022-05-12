@@ -1,25 +1,7 @@
 #include "types.h"
 #include "textmode.h"
+#include "memory.h"
 #include "vm.h"
-
-enum ram_info_type_e
-{
-	RAM_INFO_TYPE_FREE     = 1,
-	RAM_INFO_TYPE_RESERVED = 2,
-};
-
-struct ram_info_entry
-{
-	u64 base;
-	u64 size;
-	u32 type;
-	u32 attr; // ACPI 3.0 extended attribute bitfield
-};
-
-_Static_assert(
-	sizeof(struct ram_info_entry) == 24,
-	"Unexpected ram_info_entry size"
-);
 
 struct kernel_boot_header
 {
@@ -32,6 +14,7 @@ struct kernel_boot_header
 int kmain(struct kernel_boot_header *boot_header)
 {
 	txmbuf term = make_early_txmbuf();
+	struct kernel_heap heap;
 
 	txm_print(&term, "Kernel successfuly loaded from ELF!");
 	txm_line_feed(&term);
@@ -64,6 +47,15 @@ int kmain(struct kernel_boot_header *boot_header)
 			" |       FREE       |" : " |     RESERVED     |");
 		txm_line_feed(&term);
 	}
+	txm_line_feed(&term);
+
+	heap = make_early_heap(boot_header->ram_info, boot_header->ram_info_entries);
+
+	txm_print(&term, "Early heap @ ");
+	txm_print_hex(&term, (u64) heap.begin);
+	txm_putc(&term, '-');
+	txm_print_hex(&term, (u64) heap.end);
+	txm_line_feed(&term);
 
 	txm_line_feed(&term);
 	PML4E *p = (PML4E*) boot_header->pml4;

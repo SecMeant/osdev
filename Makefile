@@ -15,7 +15,7 @@ TFTP_DIR:=/var/lib/tftpboot/
 
 PHONY:=
 
-KERNEL_SRC:=kernel.c textmode.c
+KERNEL_SRC:=kernel.c textmode.c memory.c
 KERNEL_OBJS:=$(patsubst %.c,%.o,$(KERNEL_SRC))
 
 # DO NOT CHANGE THIS!
