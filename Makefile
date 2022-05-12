@@ -40,22 +40,24 @@ all: stage1 stage2 kernel64 floppy.bin
 depend: .depend
 
 .depend: $(KERNEL_SRC)
-	rm -f .depend
-	$(CC) $(CFLAGS) -MM $^ > .depend
+	$(Q)rm -f .depend
+	$(Q)$(CC) $(CFLAGS) -MM $^ > .depend
 
 include .depend
 
 stage1: stage1.s boot_info.inc
-	$(AS) stage1.s -o _stage1
+	@echo -e "  **\t Building stage 1 bootloader"
+	$(Q)$(AS) stage1.s -o _stage1
 	$(Q)if [ `stat --format="%s" _stage1` -ne 512 ]; then \
 		echo >&2 "Check size for stage1 failed"; \
 		false;\
 	fi
 
-	mv _stage1 stage1
+	$(Q)mv _stage1 stage1
 
 stage2: stage2.s
-	$(AS) stage2.s -o stage2
+	@echo -e "  AS\t" $<
+	$(Q)$(AS) stage2.s -o stage2
 
 boot_info.inc: stage2 kernel64
 	$(Q)echo '%define STAGE2_LOAD_ADDR $(STAGE2_LOAD_ADDR)' > boot_info.inc
@@ -71,13 +73,14 @@ libkernel64.a: kernel/Cargo.toml kernel/Cargo.lock kernel/src/* FORCE
 	$(Q)cd kernel && cargo rustc --lib --release -vv -- -C soft-float -C lto --emit link=../$@
 
 %.o: %.c
+	@echo -e "  CC\t" $<
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 
 kernel64: x86_64.ld $(KERNEL_OBJS) types.h
-	$(LD) --gc-sections -T x86_64.ld -o $@ $(KERNEL_OBJS)
+	$(Q)$(LD) --gc-sections -T x86_64.ld -o $@ $(KERNEL_OBJS)
 
 floppy.bin: stage1 stage2 kernel64
-	cat stage1 stage2 kernel64 > floppy.bin
+	$(Q)cat stage1 stage2 kernel64 > floppy.bin
 	$(Q)$(MAKE) -s stats
 
 PHONY += stats
@@ -93,7 +96,7 @@ clean:
 
 PHONY += run
 run: floppy.bin
-	qemu-system-x86_64 -hda floppy.bin $(QEMU_OPTS)
+	$(Q) qemu-system-x86_64 -hda floppy.bin $(QEMU_OPTS)
 
 PHONY += install_tftp
 install_tftp: floppy.bin
