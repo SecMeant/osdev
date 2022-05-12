@@ -128,10 +128,10 @@ gdt:
 ; null segment
 dd 0, 0
 
-dd 0xffff
+dd 0x0000ffff
 dd (10 << 8)|(1 << 12)|(1<<15)|(0xf<<16)|(1<<22)|(1<<23)
 
-dd 0xffff
+dd 0x0000ffff
 dd (2 << 8)|(1 << 12)|(1<<15)|(0xf<<16)|(1<<22)|(1<<23)
 
 gdt_end:
@@ -329,7 +329,7 @@ check_longmode_available:
 ; Align PML4 to 4kB
 times (4096 - ($ - $$ + 0x7e00) % 4096) db 0xcc
 PML4:
-dq 1 | 1 << 1 | (PDPTE - $$ + 0x7e00)
+dq 1 | 1 << 1 | 1 << 8 | (PDPTE - $$ + 0x7e00) & 0xfffffffffffff000
 times 511 dq 0
 
 PDPTE:
@@ -408,7 +408,7 @@ start64:
 
 	mov rdi, KERNEL64_HEADER
 	mov qword [rdi], KERNEL64_BASE
-	mov qword [rdi + 8], PML4
+	mov qword [rdi + 8], PML4 - $$ + 0x7e00
 
 	; e_entry
 	mov rax, [kernel + 0x18]

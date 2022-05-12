@@ -69,9 +69,6 @@ boot_info.inc: stage2 kernel64
 	$(Q)echo -n '%define KERNEL64_SEC_SIZE ' >> boot_info.inc
 	$(Q)expr \( `stat --format="%s" kernel64` + 511 \) / 512 >> boot_info.inc
 
-libkernel64.a: kernel/Cargo.toml kernel/Cargo.lock kernel/src/* FORCE
-	$(Q)cd kernel && cargo rustc --lib --release -vv -- -C soft-float -C lto --emit link=../$@
-
 %.o: %.c
 	@echo -e "  CC\t" $<
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@

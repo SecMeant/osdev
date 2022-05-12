@@ -90,7 +90,6 @@ puts:
 
 	puts_print_loop:
 	mov si, [bp+4]
-	xor al, al
 	mov al, [si]
 	add si, 1
 	mov [bp+4], si

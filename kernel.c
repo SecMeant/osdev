@@ -1,5 +1,6 @@
 #include "types.h"
 #include "textmode.h"
+#include "vm.h"
 
 enum ram_info_type_e
 {
@@ -63,6 +64,20 @@ int kmain(struct kernel_boot_header *boot_header)
 			" |       FREE       |" : " |     RESERVED     |");
 		txm_line_feed(&term);
 	}
+
+	txm_line_feed(&term);
+	PML4E *p = (PML4E*) boot_header->pml4;
+	PDPTE *pp = (PDPTE*) (p->address << 12);
+
+	txm_print(&term, "PML4: ");
+	txm_print_hex(&term, boot_header->pml4);
+	txm_line_feed(&term);
+
+	txm_print_hex(&term, pp);
+	txm_line_feed(&term);
+
+	txm_print_hex(&term, pp->raw);
+	txm_line_feed(&term);
 
 	while (1) {}
 }
