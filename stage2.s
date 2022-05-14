@@ -13,7 +13,7 @@ stage2:
 	call puts16
 	add sp, 2
 
-	mov ax, KERNEL64_HEADER_ES + 1
+	mov ax, KERNEL64_HEADER_ES + 2
 	mov es, ax
 	mov di, KERNEL64_HEADER_DI
 
@@ -336,7 +336,7 @@ times 511 dq 0
 
 PDPTE:
 dq 1 | 1 << 1 | 1 << 3 | 1 << 4 | 1 << 7 | 0 << 30
-times 510 dq 0
+times 511 dq 0
 
 start64:
 [bits 64]
@@ -362,11 +362,12 @@ start64:
 
 	; allocate space for section header
 	; and for variables
-	sub rsp, 0x40 + 0x18
+	sub rsp, 0x40 + 0x20
 
 	mov [rbp - 0x48], r9  ; offset to current section header
 	mov [rbp - 0x50], r10 ; section size (const)
 	mov [rbp - 0x58], r11 ; section count (how much more to read)
+	mov QWORD [rbp - 0x60], 0 ; highest address seen when mapping elf (used as kernel size)
 
 	;
 	; map kernel
@@ -403,14 +404,22 @@ start64:
 	mov rdx, KERNEL64_BASE
 	call mapsection
 
+	; save highest seen address so that we know size of the kernel
+	mov rax, [rbp - 0x60]
+	cmp rdi, rax
+	cmova rax, rdi
+	mov [rbp - 0x60], rax
+
 	sub qword [rbp - 0x58], 1
 	jnz .section_loop
 
 	.mapkernelend:
 
+	mov rax, [rbp - 0x60]
 	mov rdi, KERNEL64_HEADER
 	mov qword [rdi], KERNEL64_BASE
-	mov qword [rdi + 8], PML4 - $$ + 0x7e00
+	mov qword [rdi + 8], rax
+	mov qword [rdi + 16], PML4 - $$ + 0x7e00
 
 	; e_entry
 	mov rax, [kernel + 0x18]
@@ -420,7 +429,8 @@ start64:
 	.mapkernelfailed:
 	jmp $
 
-; void memcpy(rdi: char *dest, rsi: char *source, rdx: u64 size)
+; void* memcpy(rdi: char *dest, rsi: char *source, rdx: u64 size)
+; Returns address past last written byte in RDI.
 memcpy64:
 	test rdx, rdx
 	jz .exit
@@ -479,7 +489,8 @@ memcheckzeroed:
 	.exit:
 	ret
 
-; void mapsection(rdi: void *section_header, rsi: void *elf, rdx: void *base)
+; void* mapsection(rdi: void *section_header, rsi: void *elf, rdx: void *base)
+; Returns address past last written byte in RDI.
 mapsection:
 	mov r8,  [rdi + 0x10] ; sh_addr
 	mov r9,  [rdi + 0x18] ; sh_offset
@@ -508,7 +519,7 @@ mapsection:
 	.mapbss:
 	xor eax, eax
 	rep stosb
-	jmp .exit
+	ret
 
 stage2_win: db 'Second stage loaded!', 0xd, 0xa, 0
 msg_a20_enabled: db 'A20 line is enabled', 0xd, 0xa, 0

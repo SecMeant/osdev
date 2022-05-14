@@ -27,7 +27,7 @@ typedef struct {
 /* 4-Level Page-Directory-Pointer-Table Entry */
 typedef struct {
 	union {
-		u64 raw;
+		u64 as_u64;
 
 		struct {
 			u64 present       : 1;
@@ -78,37 +78,45 @@ typedef struct {
 } PDPTE;
 
 /* 4-Level Page-Directory Entry */
-typedef struct {
-	u64 present       : 1;
-	u64 writeable     : 1;
-	u64 usermode      : 1;
-	u64 write_through : 1;
-	u64 cache_disable : 1;
-	u64 accessed      : 1;
-	u64 reserved_0    : 1;
-	u64 size          : 1; // must be 0 for 4kb pages
-	u64 reserved_2    : 4;
-	u64 address       : 40; // has to be in cannonical form
-	u64 reserved_3    : 11;
-	u64 exec_disable  : 1;
+typedef union {
+	u64 as_u64;
+
+	struct {
+		u64 present       : 1;
+		u64 writeable     : 1;
+		u64 usermode      : 1;
+		u64 write_through : 1;
+		u64 cache_disable : 1;
+		u64 accessed      : 1;
+		u64 reserved_0    : 1;
+		u64 size          : 1; // must be 0 for 4kb pages
+		u64 reserved_2    : 4;
+		u64 address       : 40; // has to be in cannonical form
+		u64 reserved_3    : 11;
+		u64 exec_disable  : 1;
+	};
 } PDE;
 
 /* 4-Level Page-Table Entry */
-typedef struct {
-	u64 present       : 1;
-	u64 writeable     : 1;
-	u64 usermode      : 1;
-	u64 write_through : 1;
-	u64 cache_disable : 1;
-	u64 accessed      : 1;
-	u64 dirty         : 1;
-	u64 pat           : 1;
-	u64 global        : 1;
-	u64 reserved_2    : 3;
-	u64 address       : 40; // has to be in cannonical form
-	u64 reserved_3    : 7;
-	u64 prot_key      : 4;
-	u64 exec_disable  : 1;
+typedef union {
+	u64 as_u64;
+
+	struct  {
+		u64 present       : 1;
+		u64 writeable     : 1;
+		u64 usermode      : 1;
+		u64 write_through : 1;
+		u64 cache_disable : 1;
+		u64 accessed      : 1;
+		u64 dirty         : 1;
+		u64 pat           : 1;
+		u64 global        : 1;
+		u64 reserved_2    : 3;
+		u64 address       : 40; // has to be in cannonical form
+		u64 reserved_3    : 7;
+		u64 prot_key      : 4;
+		u64 exec_disable  : 1;
+	};
 } PTE;
 
 _Static_assert(sizeof(PML4E) == 8);

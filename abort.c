@@ -11,6 +11,7 @@ void panic()
 
 	u64 reg;
 	__asm__ volatile (
+		// call REL32 (call rip+5)
 		".byte 0xe8, 0x00, 0x00, 0x00, 0x00\n"
 		"pop %[reg]\n"
 		: [reg] "=r" (reg)
@@ -32,5 +33,7 @@ void panic()
 	__asm__ volatile (
 		"hlt\n"
 	);
+
+	while(1) {}
 }
 

@@ -36,7 +36,10 @@ struct kernel_heap {
 	void *end;
 };
 
+int vmmap_4kb(struct kernel_heap *heap, void *pml4, void *virt, void *phys);
+
 void *kalloc(struct kernel_heap *kheap, u64 size, u64 alignment);
+void *kzalloc(struct kernel_heap *kheap, u64 size, u64 alignment);
 static inline void kfree(struct kernel_heap *kheap, void *p)
 {
 	(void) kheap;

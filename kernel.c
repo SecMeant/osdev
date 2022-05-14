@@ -5,8 +5,15 @@
 
 struct kernel_boot_header
 {
-	u64 kbase;
+	u64 kernel_base;
+	u64 kernel_end;
 	u64 pml4;
+
+	// We use it to make ram_info array aligned to 16 bytes. This makes
+	// some code slightly easier/shorter in bootloader when detecting
+	// memory.
+	u64 reserved; 
+
 	struct ram_info_entry ram_info[64];
 	u64 ram_info_entries;
 };
@@ -34,7 +41,11 @@ int kmain(struct kernel_boot_header *boot_header)
 	txm_line_feed(&term);
 
 	txm_print(&term, "Kernel relocated @ 0x");
-	txm_print_hex(&term, boot_header->kbase);
+	txm_print_hex(&term, boot_header->kernel_base);
+	txm_line_feed(&term);
+
+	txm_print(&term, "Kernel end @ 0x");
+	txm_print_hex(&term, boot_header->kernel_end);
 	txm_line_feed(&term);
 
 	txm_print(&term, "PML4 allocated   @ 0x");
@@ -64,7 +75,6 @@ int kmain(struct kernel_boot_header *boot_header)
 	txm_line_feed(&term);
 
 	PML4E *pml4 = (PML4E*) boot_header->pml4;
-	PDPTE *pdpte = (PDPTE*) (pml4[0].address << 12);
 
 	heap = make_early_heap(pml4, boot_header->ram_info, boot_header->ram_info_entries);
 
@@ -76,22 +86,62 @@ int kmain(struct kernel_boot_header *boot_header)
 
 	PML4E *paging = kalloc(&heap, sizeof(PML4E) * 512, 4096);
 
+	txm_print(&term, "Paging    = ");
 	txm_print_hex(&term, (u64) paging);
-	txm_line_feed(&term);
-	txm_print_hex(&term, (u64) boot_header->pml4);
-	txm_line_feed(&term);
-	txm_print_hex(&term, (u64) pml4);
-	txm_line_feed(&term);
-	txm_print_hex(&term, (u64) pdpte);
-	txm_line_feed(&term);
-	txm_print_hex(&term, pdpte->raw);
-	txm_line_feed(&term);
-	txm_print_hex(&term, pdpte->pdpte_1gb.address << 12);
-	txm_line_feed(&term);
-	txm_print_hex(&term, pdpte->is_1gb);
 	txm_line_feed(&term);
 
 	memcpy(paging, (void*) boot_header->pml4, sizeof(PML4E) * 512);
+
+	union {
+		u64 as_u64;
+
+		struct {
+			u64 offset   : 12;
+			u64 table    : 9;
+			u64 dir      : 9;
+			u64 dirptr   : 9;
+			u64 pml4     : 9;
+			u64 reserved : 16;
+		};
+	} va;
+	_Static_assert(sizeof(va) == sizeof(u64));
+
+	va.offset = 0;
+	va.table = 0;
+	va.dir = 0;
+	va.dirptr = 1;
+	va.pml4 = 0;
+
+	int ret;
+	ret = vmmap_4kb(&heap, pml4, va.as_u64, heap.begin + 0x6000);
+
+	txm_print(&term, "VA        = ");
+	txm_print_hex(&term, va.as_u64);
+	txm_line_feed(&term);
+
+	txm_print(&term, "ret       = ");
+	txm_print_hex(&term, ret);
+	txm_line_feed(&term);
+
+	txm_print(&term, "heap.head = ");
+	txm_print_hex(&term, (u64) heap.head);
+	txm_line_feed(&term);
+
+	txm_print(&term, "pml4[0]   = ");
+	txm_print_hex(&term, (u64) pml4[0].as_u64);
+	txm_line_feed(&term);
+
+	PDPTE *pdpt = pml4[0].address << 12;
+	txm_print(&term, "pdpt[1]   = ");
+	txm_print_hex(&term, (u64) pdpt[0].as_u64);
+	txm_line_feed(&term);
+
+	txm_print(&term, "pdpt[1]1g = ");
+	txm_print_hex(&term, (u64) pdpt[1].is_1gb);
+	txm_line_feed(&term);
+
+	volatile u64 *ppp = heap.begin + 0x6000;
+	*ppp = 0x1337;
 
 	while (1) {}
 }
