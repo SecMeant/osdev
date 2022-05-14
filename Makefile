@@ -5,8 +5,10 @@ LD:=ld
 WC:=/usr/bin/wc
 SUDO:=sudo
 
-CFLAGS:=-Wall -Wextra -nostdlib -fPIC -std=c17 \
+CFLAGS:=-Wall -Wextra -nostdlib -ffreestanding -mno-red-zone -fPIC -std=c17 \
 	-fno-stack-protector -O2 -mno-sse -mno-avx
+
+LDFLAGS:=-nostdlib
 
 QEMU_DEBUG:=0
 QEMU_OPTS:=-no-reboot -no-shutdown -d int,cpu_reset
@@ -15,7 +17,7 @@ TFTP_DIR:=/var/lib/tftpboot/
 
 PHONY:=
 
-KERNEL_SRC:=kernel.c textmode.c memory.c
+KERNEL_SRC:=kernel.c textmode.c memory.c abort.c
 KERNEL_OBJS:=$(patsubst %.c,%.o,$(KERNEL_SRC))
 
 # DO NOT CHANGE THIS!
@@ -74,7 +76,7 @@ boot_info.inc: stage2 kernel64
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 
 kernel64: x86_64.ld $(KERNEL_OBJS) types.h
-	$(Q)$(LD) --gc-sections -T x86_64.ld -o $@ $(KERNEL_OBJS)
+	$(Q)$(LD) $(LDFLAGS) --gc-sections -T x86_64.ld -o $@ $(KERNEL_OBJS)
 
 floppy.bin: stage1 stage2 kernel64
 	$(Q)cat stage1 stage2 kernel64 > floppy.bin

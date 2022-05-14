@@ -26,5 +26,6 @@ void txm_print(txmbuf *buf, char *s);
 void txm_print_hex(txmbuf *buf, u64 v);
 void txm_line_feed(txmbuf *buf);
 void txm_clear_cur_line(txmbuf *buf);
+void txm_clear_screen(txmbuf *buf);
 txmbuf make_early_txmbuf(void);
 

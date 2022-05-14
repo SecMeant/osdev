@@ -1,19 +1,27 @@
 #pragma once
 
+#include "types.h"
+
 /* 4-Level PML4 Entry */
 typedef struct {
-	u64 present       : 1;
-	u64 writeable     : 1;
-	u64 usermode      : 1;
-	u64 write_through : 1;
-	u64 cache_disable : 1;
-	u64 accessed      : 1;
-	u64 reserved_0    : 1;
-	u64 reserved_1    : 1; // must be zero
-	u64 reserved_2    : 4;
-	u64 address       : 40; // has to be in cannonical form
-	u64 reserved_3    : 11;
-	u64 exec_disable  : 1;
+	union {
+		u64 as_u64;
+
+		struct {
+			u64 present       : 1;
+			u64 writeable     : 1;
+			u64 usermode      : 1;
+			u64 write_through : 1;
+			u64 cache_disable : 1;
+			u64 accessed      : 1;
+			u64 reserved_0    : 1;
+			u64 reserved_1    : 1; // must be zero
+			u64 reserved_2    : 4;
+			u64 address       : 40; // has to be in cannonical form
+			u64 reserved_3    : 11;
+			u64 exec_disable  : 1;
+		};
+	};
 } PML4E;
 
 /* 4-Level Page-Directory-Pointer-Table Entry */
@@ -54,6 +62,18 @@ typedef struct {
 			u64 prot_key      : 4;
 			u64 exec_disable  : 1;
 		} pdpte_1gb;
+
+		struct {
+			u64 present       : 1;
+			u64 writeable     : 1;
+			u64 usermode      : 1;
+			u64 write_through : 1;
+			u64 cache_disable : 1;
+			u64 accessed      : 1;
+			u64 dirty         : 1;
+			u64 is_1gb        : 1; // must be 1 for 1GB pages
+			u64 reserved_0    : 4;
+		};
 	};
 } PDPTE;
 

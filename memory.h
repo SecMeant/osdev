@@ -30,20 +30,18 @@ _Static_assert(
  * Kernel heap utilities
  */
 
-#define HEAP_ALIGNMENT 8
-
 struct kernel_heap {
 	void *begin;
 	void *head;
 	void *end;
 };
 
-void *kalloc(struct kernel_heap *kheap, u64 size);
+void *kalloc(struct kernel_heap *kheap, u64 size, u64 alignment);
 static inline void kfree(struct kernel_heap *kheap, void *p)
 {
 	(void) kheap;
 	(void) p;
 }
 
-struct kernel_heap make_early_heap(struct ram_info_entry *info, u64 info_size);
+struct kernel_heap make_early_heap(void* pml4, const struct ram_info_entry *info, u64 info_size);
 

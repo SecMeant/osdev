@@ -206,6 +206,7 @@ start32:
 
 	mov eax, cr3
 	or eax, PML4 - $$ + 0x7e00
+	or eax, (1 << 3) | (1 << 4) ; Enable Page level write-through and disable caching
 	mov cr3, eax
 
 	push 4
@@ -215,6 +216,7 @@ start32:
 
 	mov eax, cr4
 	or eax, 1 << 5 ; Enable PAE
+	and eax, ~(1 << 17) ; Disable PCIDE
 	mov cr4, eax
 
 	push 5
@@ -329,12 +331,12 @@ check_longmode_available:
 ; Align PML4 to 4kB
 times (4096 - ($ - $$ + 0x7e00) % 4096) db 0xcc
 PML4:
-dq 1 | 1 << 1 | 1 << 8 | (PDPTE - $$ + 0x7e00) & 0xfffffffffffff000
+dq 1 | 1 << 1 | 1 << 3 | 1 << 4 | (PDPTE - $$ + 0x7e00) & 0xfffffffffffff000
 times 511 dq 0
 
 PDPTE:
-dq 1 | 1 << 1 | 1 << 7 | 0 << 30
-times 511 dq 0
+dq 1 | 1 << 1 | 1 << 3 | 1 << 4 | 1 << 7 | 0 << 30
+times 510 dq 0
 
 start64:
 [bits 64]

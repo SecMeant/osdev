@@ -23,6 +23,16 @@ void txm_clear_cur_line(txmbuf *buf)
 	}
 }
 
+void txm_clear_screen(txmbuf *buf)
+{
+	for (int y = 0; y < GPUBUF_SCREEN_HEIGHT; ++y) {
+		for (int x = 0; x < GPUBUF_SCREEN_WIDTH; ++x) {
+			(*buf->mem)[y][x].ch = ' ';
+			(*buf->mem)[y][x].bg = GPUBUF_CHAR_BG_BLACK;
+		}
+	}
+}
+
 void txm_print(txmbuf *buf, char *s)
 {
 	while (*s != 0) {

@@ -11,6 +11,20 @@ struct kernel_boot_header
 	u64 ram_info_entries;
 };
 
+static void memcpy(void *dst_, const void *src_, u64 size)
+{
+	u8 *dst = dst_;
+	const u8 *src = src_;
+
+	while (size) {
+		*dst = *src;
+
+		++dst;
+		++src;
+		--size;
+	}
+}
+
 int kmain(struct kernel_boot_header *boot_header)
 {
 	txmbuf term = make_early_txmbuf();
@@ -49,7 +63,10 @@ int kmain(struct kernel_boot_header *boot_header)
 	}
 	txm_line_feed(&term);
 
-	heap = make_early_heap(boot_header->ram_info, boot_header->ram_info_entries);
+	PML4E *pml4 = (PML4E*) boot_header->pml4;
+	PDPTE *pdpte = (PDPTE*) (pml4[0].address << 12);
+
+	heap = make_early_heap(pml4, boot_header->ram_info, boot_header->ram_info_entries);
 
 	txm_print(&term, "Early heap @ ");
 	txm_print_hex(&term, (u64) heap.begin);
@@ -57,19 +74,24 @@ int kmain(struct kernel_boot_header *boot_header)
 	txm_print_hex(&term, (u64) heap.end);
 	txm_line_feed(&term);
 
-	txm_line_feed(&term);
-	PML4E *p = (PML4E*) boot_header->pml4;
-	PDPTE *pp = (PDPTE*) (p->address << 12);
+	PML4E *paging = kalloc(&heap, sizeof(PML4E) * 512, 4096);
 
-	txm_print(&term, "PML4: ");
-	txm_print_hex(&term, boot_header->pml4);
+	txm_print_hex(&term, (u64) paging);
+	txm_line_feed(&term);
+	txm_print_hex(&term, (u64) boot_header->pml4);
+	txm_line_feed(&term);
+	txm_print_hex(&term, (u64) pml4);
+	txm_line_feed(&term);
+	txm_print_hex(&term, (u64) pdpte);
+	txm_line_feed(&term);
+	txm_print_hex(&term, pdpte->raw);
+	txm_line_feed(&term);
+	txm_print_hex(&term, pdpte->pdpte_1gb.address << 12);
+	txm_line_feed(&term);
+	txm_print_hex(&term, pdpte->is_1gb);
 	txm_line_feed(&term);
 
-	txm_print_hex(&term, pp);
-	txm_line_feed(&term);
-
-	txm_print_hex(&term, pp->raw);
-	txm_line_feed(&term);
+	memcpy(paging, (void*) boot_header->pml4, sizeof(PML4E) * 512);
 
 	while (1) {}
 }
