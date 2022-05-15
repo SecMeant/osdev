@@ -20,6 +20,8 @@ struct kernel_boot_header
 
 int kmain(struct kernel_boot_header *boot_header)
 {
+	disable_cursor();
+
 	txmbuf term = make_early_txmbuf();
 	struct kernel_heap heap;
 
@@ -126,7 +128,16 @@ int kmain(struct kernel_boot_header *boot_header)
 	txm_print_hex(&term, (u64) pdpt[1].is_1gb);
 	txm_line_feed(&term);
 
-	volatile u64 *ppp = heap.begin + 0x6000;
+	pdpt = pml4[0].address << 12;
+	txm_print(&term, "pdpt[1]   = ");
+	txm_print_hex(&term, (u64) pdpt[0].as_u64);
+	txm_line_feed(&term);
+
+	txm_print(&term, "pdpt[1]1g = ");
+	txm_print_hex(&term, (u64) pdpt[1].is_1gb);
+	txm_line_feed(&term);
+
+	volatile u64 *ppp = va.as_u64;
 	*ppp = 0x1337;
 
 	while (1) {}

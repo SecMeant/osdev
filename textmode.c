@@ -1,5 +1,19 @@
 #include "textmode.h"
 
+static void txm_scroll(txmbuf *buf, size_t line_count)
+{
+	if (line_count >= GPUBUF_SCREEN_HEIGHT) {
+		txm_clear_screen(buf);
+		return;
+	}
+
+	for (int y = line_count; y < GPUBUF_SCREEN_HEIGHT; ++y) {
+		for (u32 x = 0; x < GPUBUF_SCREEN_WIDTH; ++x) {
+			(*buf->mem)[y-line_count][x] = (*buf->mem)[y][x];
+		}
+	}
+}
+
 void txm_putc(txmbuf *buf, char ch)
 {
 	(*buf->mem)[buf->cury][buf->curx].ch = ch;
@@ -10,7 +24,7 @@ void txm_putc(txmbuf *buf, char ch)
 		buf->curx = 0;
 		++buf->cury;
 		if (buf->cury >= GPUBUF_SCREEN_HEIGHT) {
-			buf->cury = 0;
+			txm_scroll(buf, 1);
 		}
 	}
 }
@@ -57,7 +71,7 @@ void txm_line_feed(txmbuf *buf)
 	++buf->cury;
 
 	if (buf->cury >= GPUBUF_SCREEN_HEIGHT)
-		buf->cury = 0;
+		txm_scroll(buf, 1);
 }
 
 txmbuf make_early_txmbuf(void)
