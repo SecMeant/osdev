@@ -18,20 +18,6 @@ struct kernel_boot_header
 	u64 ram_info_entries;
 };
 
-static void memcpy(void *dst_, const void *src_, u64 size)
-{
-	u8 *dst = dst_;
-	const u8 *src = src_;
-
-	while (size) {
-		*dst = *src;
-
-		++dst;
-		++src;
-		--size;
-	}
-}
-
 int kmain(struct kernel_boot_header *boot_header)
 {
 	txmbuf term = make_early_txmbuf();
@@ -76,7 +62,7 @@ int kmain(struct kernel_boot_header *boot_header)
 
 	PML4E *pml4 = (PML4E*) boot_header->pml4;
 
-	heap = make_early_heap(pml4, boot_header->ram_info, boot_header->ram_info_entries);
+	heap = make_early_heap();
 
 	txm_print(&term, "Early heap @ ");
 	txm_print_hex(&term, (u64) heap.begin);
@@ -113,7 +99,7 @@ int kmain(struct kernel_boot_header *boot_header)
 	va.pml4 = 0;
 
 	int ret;
-	ret = vmmap_4kb(&heap, pml4, va.as_u64, heap.begin + 0x6000);
+	ret = vmmap_4kb(&heap, pml4, (void*) va.as_u64, heap.begin + 0x6000);
 
 	txm_print(&term, "VA        = ");
 	txm_print_hex(&term, va.as_u64);
@@ -131,7 +117,7 @@ int kmain(struct kernel_boot_header *boot_header)
 	txm_print_hex(&term, (u64) pml4[0].as_u64);
 	txm_line_feed(&term);
 
-	PDPTE *pdpt = pml4[0].address << 12;
+	PDPTE *pdpt = (PDPTE*) ((u64) pml4[0].address << 12);
 	txm_print(&term, "pdpt[1]   = ");
 	txm_print_hex(&term, (u64) pdpt[0].as_u64);
 	txm_line_feed(&term);

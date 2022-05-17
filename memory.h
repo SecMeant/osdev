@@ -1,6 +1,6 @@
 #pragma once
 #include "types.h"
-
+#include "vm.h"
 
 /*
  * Early RAM detection
@@ -36,7 +36,11 @@ struct kernel_heap {
 	void *end;
 };
 
-int vmmap_4kb(struct kernel_heap *heap, void *pml4, void *virt, void *phys);
+void memset(void *p_, u64 c, u64 n);
+void memcpy(void *dst_, const void *src_, u64 size);
+
+int vmmap_4kb(struct kernel_heap *heap, PML4E *pml4, void *virt, void *phys);
+int vmmap_1gb(struct kernel_heap *heap, PML4E *pml4, void *virt, void *phys);
 
 void *kalloc(struct kernel_heap *kheap, u64 size, u64 alignment);
 void *kzalloc(struct kernel_heap *kheap, u64 size, u64 alignment);
@@ -46,5 +50,5 @@ static inline void kfree(struct kernel_heap *kheap, void *p)
 	(void) p;
 }
 
-struct kernel_heap make_early_heap(void* pml4, const struct ram_info_entry *info, u64 info_size);
+struct kernel_heap make_early_heap(void);
 

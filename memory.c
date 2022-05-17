@@ -4,14 +4,17 @@
 #include "compiler.h"
 #include "abort.h"
 
-#define EARLY_HEAP_BASE 0x200000
+// 1 MB of early heap
+#define EARLY_HEAP_SIZE (1024ull * 1024ull)
+static char EARLY_HEAP_MEM[EARLY_HEAP_SIZE];
+
 #define CANNONICAL_ADDRESS_MASK 0x000fffffffffffff
 #define PAGE_MASK_1GB 0xffffffffc0000000
 #define PAGE_MASK_4KB 0xfffffffffffff000
 
 #define IS_POWER_OF_2(x) ((x != 0) && ((x & (x - 1)) == 0))
 
-static void memset(void *p_, u64 c, u64 n) 
+void memset(void *p_, u64 c, u64 n) 
 {
 	u8 *p = p_;
 
@@ -20,6 +23,20 @@ static void memset(void *p_, u64 c, u64 n)
 
 		++p;
 		--n;
+	}
+}
+
+void memcpy(void *dst_, const void *src_, u64 size)
+{
+	u8 *dst = dst_;
+	const u8 *src = src_;
+
+	while (size) {
+		*dst = *src;
+
+		++dst;
+		++src;
+		--size;
 	}
 }
 
@@ -53,9 +70,8 @@ void *kzalloc(struct kernel_heap *kheap, u64 size, u64 alignment)
 
 // TODO: Add different exit codes for pages that cannot be mapped for some
 //       reason and pages that are already mapped.
-int vmmap_4kb(struct kernel_heap *heap, void *pml4_, void *virtual_, void *physical_)
+int vmmap_4kb(struct kernel_heap *heap, PML4E *pml4, void *virtual_, void *physical_)
 {
-	PML4E *pml4 = pml4_;
 	u64 physical = (u64) physical_;
 
 	union {
@@ -100,7 +116,7 @@ int vmmap_4kb(struct kernel_heap *heap, void *pml4_, void *virtual_, void *physi
 		pml4e->address = ((u64) pdpt >> 12);
 	}
 
-	pdpt = (PDPTE*) (pml4e->address << 12);
+	pdpt = (PDPTE*) ((u64) pml4e->address << 12lu);
 	PDPTE *pdpte = &pdpt[page_parts.pdpte];
 
 	if (!pdpte->present) {
@@ -116,7 +132,7 @@ int vmmap_4kb(struct kernel_heap *heap, void *pml4_, void *virtual_, void *physi
 	if (pdpte->is_1gb)
 		return 1;
 
-	pd = (PDE*) (pdpte->pdpte_4kb.address << 12);
+	pd = (PDE*) ((u64) pdpte->pdpte_4kb.address << 12);
 	PDE *pde = &pd[page_parts.pde];
 
 	if (!pde->present) {
@@ -128,7 +144,7 @@ int vmmap_4kb(struct kernel_heap *heap, void *pml4_, void *virtual_, void *physi
 		pde->address = ((u64) pt >> 12);
 	}
 
-	pt = (PTE*) (pde->address << 12);
+	pt = (PTE*) ((u64) pde->address << 12);
 	PTE *pte = &pt[page_parts.pte];
 
 	if (pte->present)
@@ -152,7 +168,7 @@ int vmmap_4kb(struct kernel_heap *heap, void *pml4_, void *virtual_, void *physi
 	return 0;
 }
 
-static int vmmap_1gb(struct kernel_heap *heap, PML4E *pml4, void *virtual_, void *physical_)
+int vmmap_1gb(struct kernel_heap *heap, PML4E *pml4, void *virtual_, void *physical_)
 {
 	union {
 		u64 as_u64;
@@ -186,7 +202,7 @@ static int vmmap_1gb(struct kernel_heap *heap, PML4E *pml4, void *virtual_, void
 		pml4[page_parts.pml4e].address = ((u64) pdpt) >> 12;
 	}
 
-	PDPTE *pdpt = (PDPTE*) (pml4[page_parts.pml4e].address << 12);
+	PDPTE *pdpt = (PDPTE*) ((u64) pml4[page_parts.pml4e].address << 12);
 
 	if (pdpt[page_parts.pdpte].present)
 		return 1;
@@ -216,24 +232,8 @@ static struct kernel_heap _make_heap(void *base, u64 size)
 	return ret;
 }
 
-struct kernel_heap make_early_heap(void *pml4_, const struct ram_info_entry *info, u64 info_size)
+struct kernel_heap make_early_heap()
 {
-	void *phys_base = NULL;
-	u64 size = 0;
-
-	for (u64 i = 0; i < info_size; ++i) {
-		if (info[i].type != RAM_INFO_TYPE_FREE)
-			continue;
-
-		if (info[i].size <= size)
-			continue;
-
-		phys_base = (void*) info[i].base;
-		size = info[i].size;
-	}
-
-	PML4E *pml4 = pml4_;
-
-	struct kernel_heap ret = _make_heap((void*) EARLY_HEAP_BASE, size);
+	struct kernel_heap ret = _make_heap((void*) EARLY_HEAP_MEM, EARLY_HEAP_SIZE);
 	return ret;
 }
