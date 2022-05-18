@@ -1,6 +1,6 @@
 #include "textmode.h"
 
-__attribute__((noreturn))
+__attribute__((noreturn,noinline))
 void panic()
 {
 	txmbuf term = make_early_txmbuf();
@@ -9,18 +9,11 @@ void panic()
 	txm_print(&term, "*** KERNEL PANIC ***");
 	txm_line_feed(&term);
 
-	u64 reg;
-	__asm__ volatile (
-		// call REL32 (call rip+5)
-		".byte 0xe8, 0x00, 0x00, 0x00, 0x00\n"
-		"pop %[reg]\n"
-		: [reg] "=r" (reg)
-	);
-
 	txm_print(&term, "RIP: ");
-	txm_print_hex(&term, reg);
+	txm_print_hex(&term, (u64) __builtin_return_address(0));
 	txm_line_feed(&term);
 
+	u64 reg;
 	__asm__ volatile (
 		"lea (%%rsp), %[reg]\n"
 		: [reg] "=r" (reg)

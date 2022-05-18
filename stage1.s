@@ -16,7 +16,7 @@ start:
 	mov sp, 0x7c00
 
 	mov ah, 0 ; set video mode
-	mov al, 3 ; 80x25 8x8 640x200
+	mov al, 2 ; 80x25 8x8 640x200
 	int 0x10
 
 	jmp 0:reset_cs

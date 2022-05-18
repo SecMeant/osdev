@@ -21,6 +21,8 @@ typedef struct {
 	u64 cury;
 } txmbuf;
 
+extern txmbuf earlytxm;
+
 void txm_putc(txmbuf *buf, char ch);
 void txm_print(txmbuf *buf, char *s);
 void txm_print_hex(txmbuf *buf, u64 v);

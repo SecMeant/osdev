@@ -1,24 +1,28 @@
 CC:=gcc
 AR:=ar
-AS:=nasm
+AS:=as
 LD:=ld
 WC:=/usr/bin/wc
 SUDO:=sudo
 
 CFLAGS:=-Wall -Wextra -nostdlib -ffreestanding -mno-red-zone -fPIC -std=c17 \
-	-fno-stack-protector -O2 -mno-sse -mno-avx
+	-fno-stack-protector -O2 -mno-sse -mno-avx -mno-mmx -mgeneral-regs-only
 
 LDFLAGS:=-nostdlib
 
+ASFLAGS:=--64
+
 QEMU_DEBUG:=0
-QEMU_OPTS:=-no-reboot -no-shutdown -d int,cpu_reset
+QEMU_OPTS:=-no-reboot -no-shutdown -d int,cpu_reset,pcall
 
 TFTP_DIR:=/var/lib/tftpboot/
 
 PHONY:=
 
-KERNEL_SRC:=kernel.c textmode.c memory.c abort.c
+KERNEL_SRC:=kernel.c textmode.c memory.c abort.c irq.c std.c
+KERNEL_SRC_ASM:=irq_handler.s
 KERNEL_OBJS:=$(patsubst %.c,%.o,$(KERNEL_SRC))
+KERNEL_OBJS+=$(patsubst %.s,%.o,$(KERNEL_SRC_ASM))
 
 # DO NOT CHANGE THIS!
 # For now this cannot be changed because stage2.s depends on this address.
@@ -49,7 +53,8 @@ include .depend
 
 stage1: stage1.s boot_info.inc
 	@echo -e "  **\t Building stage 1 bootloader"
-	$(Q)$(AS) stage1.s -o _stage1
+	@echo -e "NASM\t" stage1,s
+	$(Q)nasm stage1.s -o _stage1
 	$(Q)if [ `stat --format="%s" _stage1` -ne 512 ]; then \
 		echo >&2 "Check size for stage1 failed"; \
 		false;\
@@ -58,8 +63,8 @@ stage1: stage1.s boot_info.inc
 	$(Q)mv _stage1 stage1
 
 stage2: stage2.s
-	@echo -e "  AS\t" $<
-	$(Q)$(AS) stage2.s -o stage2
+	@echo -e "NASM\t" $<
+	$(Q)nasm stage2.s -o stage2
 
 boot_info.inc: stage2 kernel64
 	$(Q)echo '%define STAGE2_LOAD_ADDR $(STAGE2_LOAD_ADDR)' > boot_info.inc
@@ -74,6 +79,10 @@ boot_info.inc: stage2 kernel64
 %.o: %.c
 	@echo -e "  CC\t" $<
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.s
+	@echo -e "  AS\t" $<
+	$(Q)$(AS) $(ASFLAGS) -c $< -o $@
 
 kernel64: x86_64.ld $(KERNEL_OBJS) types.h
 	$(Q)$(LD) $(LDFLAGS) --gc-sections -T x86_64.ld -o $@ $(KERNEL_OBJS)

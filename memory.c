@@ -3,6 +3,7 @@
 #include "types.h"
 #include "compiler.h"
 #include "abort.h"
+#include "std.h"
 
 // 1 MB of early heap
 #define EARLY_HEAP_SIZE (1024ull * 1024ull)
@@ -13,32 +14,6 @@ static char EARLY_HEAP_MEM[EARLY_HEAP_SIZE];
 #define PAGE_MASK_4KB 0xfffffffffffff000
 
 #define IS_POWER_OF_2(x) ((x != 0) && ((x & (x - 1)) == 0))
-
-void memset(void *p_, u64 c, u64 n) 
-{
-	u8 *p = p_;
-
-	while (n) {
-		*p = c;
-
-		++p;
-		--n;
-	}
-}
-
-void memcpy(void *dst_, const void *src_, u64 size)
-{
-	u8 *dst = dst_;
-	const u8 *src = src_;
-
-	while (size) {
-		*dst = *src;
-
-		++dst;
-		++src;
-		--size;
-	}
-}
 
 void *kalloc(struct kernel_heap *kheap, u64 size, u64 alignment)
 {

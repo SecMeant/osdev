@@ -36,9 +36,6 @@ struct kernel_heap {
 	void *end;
 };
 
-void memset(void *p_, u64 c, u64 n);
-void memcpy(void *dst_, const void *src_, u64 size);
-
 int vmmap_4kb(struct kernel_heap *heap, PML4E *pml4, void *virt, void *phys);
 int vmmap_1gb(struct kernel_heap *heap, PML4E *pml4, void *virt, void *phys);
 
