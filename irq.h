@@ -84,5 +84,6 @@ static inline u64 idtgd_get_64bit_offset(IDTGD desc)
 
 extern IDTGD idt[256];
 
-void load_idt(u64 kernel_base);
+void setup_pic(void);
+void load_idt(void);
 

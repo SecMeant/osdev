@@ -1,5 +1,7 @@
 .intel_syntax noprefix
 
+.section .text
+
 .extern isr_default
 
 .global irq_handler

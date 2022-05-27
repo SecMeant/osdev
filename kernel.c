@@ -1,29 +1,16 @@
 #include "types.h"
+#include "kernel.h"
 #include "textmode.h"
-#include "memory.h"
 #include "vm.h"
 #include "irq.h"
 #include "std.h"
 
-struct kernel_boot_header
+struct kernel_boot_header boot_header;
+
+void kmain(struct kernel_boot_header *bios_boot_header)
 {
-	u64 kernel_base;
-	u64 kernel_end;
-	u64 pml4;
+	memcpy(&boot_header, bios_boot_header, sizeof(struct kernel_boot_header));
 
-	// We use it to make ram_info array aligned to 16 bytes. This makes
-	// some code slightly easier/shorter in bootloader when detecting
-	// memory.
-	u64 reserved; 
-
-	struct ram_info_entry ram_info[64];
-	u64 ram_info_entries;
-};
-
-extern void setup_pic(void);
-
-void kmain(struct kernel_boot_header *boot_header)
-{
 	disable_cursor();
 
 	earlytxm = make_early_txmbuf();
@@ -35,15 +22,15 @@ void kmain(struct kernel_boot_header *boot_header)
 	txm_line_feed(&earlytxm);
 
 	txm_print(&earlytxm, "Kernel relocated @ 0x");
-	txm_print_hex(&earlytxm, boot_header->kernel_base);
+	txm_print_hex(&earlytxm, boot_header.kernel_base);
 	txm_line_feed(&earlytxm);
 
 	txm_print(&earlytxm, "Kernel end       @ 0x");
-	txm_print_hex(&earlytxm, boot_header->kernel_end);
+	txm_print_hex(&earlytxm, boot_header.kernel_end);
 	txm_line_feed(&earlytxm);
 
 	txm_print(&earlytxm, "PML4 allocated   @ 0x");
-	txm_print_hex(&earlytxm, boot_header->pml4);
+	txm_print_hex(&earlytxm, boot_header.pml4);
 	txm_line_feed(&earlytxm);
 
 	txm_line_feed(&earlytxm);
@@ -53,8 +40,8 @@ void kmain(struct kernel_boot_header *boot_header)
 	txm_line_feed(&earlytxm);
 	txm_line_feed(&earlytxm);
 
-	for (u64 i = 0; i < boot_header->ram_info_entries; ++i) {
-		const struct ram_info_entry e = boot_header->ram_info[i];
+	for (u64 i = 0; i < boot_header.ram_info_entries; ++i) {
+		const struct ram_info_entry e = boot_header.ram_info[i];
 		txm_putc(&earlytxm, '|');
 		txm_putc(&earlytxm, ' ');
 		txm_print_hex(&earlytxm, e.base);
@@ -68,7 +55,7 @@ void kmain(struct kernel_boot_header *boot_header)
 	}
 	txm_line_feed(&earlytxm);
 
-	PML4E *pml4 = (PML4E*) boot_header->pml4;
+	PML4E *pml4 = (PML4E*) boot_header.pml4;
 
 	heap = make_early_heap();
 
@@ -84,7 +71,7 @@ void kmain(struct kernel_boot_header *boot_header)
 	txm_print_hex(&earlytxm, (u64) paging);
 	txm_line_feed(&earlytxm);
 
-	memcpy(paging, (void*) boot_header->pml4, sizeof(PML4E) * 512);
+	memcpy(paging, (void*) boot_header.pml4, sizeof(PML4E) * 512);
 
 	union {
 		u64 as_u64;
@@ -142,14 +129,10 @@ void kmain(struct kernel_boot_header *boot_header)
 	txm_print_hex(&earlytxm, (u64) pdpt[1].is_1gb);
 	txm_line_feed(&earlytxm);
 
-	load_idt(boot_header->kernel_base);
+	load_idt();
 
 	txm_print(&earlytxm, "IRQ #20h  @ ");
 	txm_print_hex(&earlytxm, idtgd_get_64bit_offset(idt[0x20]));
-	txm_line_feed(&earlytxm);
-
-	txm_print(&earlytxm, "kmain     @ ");
-	txm_print_hex(&earlytxm, ((u64) kmain) + boot_header->kernel_base);
 	txm_line_feed(&earlytxm);
 
 	setup_pic();

@@ -1,5 +1,6 @@
 #include "types.h"
 #include "irq.h"
+#include "kernel.h"
 
 #include "textmode.h"
 
@@ -8,12 +9,16 @@ extern void trap_handler(void);
 
 IDTGD idt[256];
 
-void load_idt(u64 kernel_base)
+void load_idt(void)
 {
 	typedef struct {
 		u16 limit;
 		u64 base;
 	} __attribute__((packed)) IDTR;
+
+	// We need to offset address returned by GCC because we don't know
+	// where bootloader loaded us. GCC assumes we are loaded at addr 0.
+	u64 irq_handler_addr = ((u64) irq_handler) + boot_header.kernel_base;
 
 	// FIXME: We need proper address calculation, GCC doesn't know at what
 	// address the kernel was loaded so the addresses are all fucked up
@@ -31,7 +36,7 @@ void load_idt(u64 kernel_base)
 			case 30:
 
 			default:
-				idt[i] = idtgd_set_64bit_offset(make_64bit_idtgd(), ((u64) &irq_handler) + kernel_base);
+				idt[i] = idtgd_set_64bit_offset(make_64bit_idtgd(), irq_handler_addr);
 				idt[i].type = GATE_TYPE_IRQ;
 				break;
 		}
@@ -78,7 +83,6 @@ struct isr_context
 	u64 rdx;
 	u64 rcx;
 	u64 rax;
-	u64 error_code;
 	u64 rip;
 	u64 cs;
 	u64 rflags;
@@ -88,17 +92,58 @@ struct isr_context
 
 void isr_default(struct isr_context *ctx)
 {
-	txmbuf term = make_early_txmbuf();
+	static int printed = 0;
 
-	txm_print(&term, "ISR CONTEXT: ");
-	txm_line_feed(&term);
+	if (!printed) {
+		txm_print(&earlytxm, "ISR CONTEXT: ");
+		txm_line_feed(&earlytxm);
 
-	txm_print_hex(&term, ctx->r11);
-	txm_line_feed(&term);
-	txm_print_hex(&term, ctx->rip);
-	txm_line_feed(&term);
-	txm_print_hex(&term, ctx->rsp);
-	txm_line_feed(&term);
+		txm_print(&earlytxm, "    R11: ");
+		txm_print_hex(&earlytxm, ctx->r11);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    R10: ");
+		txm_print_hex(&earlytxm, ctx->r10);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "     R9: ");
+		txm_print_hex(&earlytxm, ctx->r9);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "     R8: ");
+		txm_print_hex(&earlytxm, ctx->r8);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    RDX: ");
+		txm_print_hex(&earlytxm, ctx->rdx);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    RCX: ");
+		txm_print_hex(&earlytxm, ctx->rcx);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    RAX: ");
+		txm_print_hex(&earlytxm, ctx->rax);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    RIP: ");
+		txm_print_hex(&earlytxm, ctx->rip);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "     CS: ");
+		txm_print_hex(&earlytxm, ctx->cs);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    FLG: ");
+		txm_print_hex(&earlytxm, ctx->rflags);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    RSP: ");
+		txm_print_hex(&earlytxm, ctx->rsp);
+		txm_line_feed(&earlytxm);
+	}
+
+	printed |= 1;
 
 	outb(0x20, 0x20);
 }
