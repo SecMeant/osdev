@@ -57,7 +57,7 @@ void load_idt(void)
 	);
 }
 
-inline void outb(u16 port, u8 data)
+static inline void outb(u16 port, u8 data)
 {
 	__asm__ volatile (
 		".intel_syntax noprefix\n"
