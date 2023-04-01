@@ -65,6 +65,7 @@ stage1: stage1.s boot_info.inc
 	$(Q)mv _stage1 stage1
 
 stage2: stage2.s
+	@echo -e "  **\t Building stage 2 bootloader"
 	@echo -e "NASM\t" $<
 	$(Q)nasm stage2.s -o stage2
 

@@ -47,6 +47,8 @@ load_stage2:
 	mov es, ax
 	mov bx, STAGE2_LOAD_ADDR
 
+	; TODO: Add support for LOADER_SEC_SIZE + KERNEL64_SEC_SIZE > 128.
+	;       Now, this bios call will fail for big kernels ;/
 	mov ah, 2      ; read sectors into memory
 	mov al, LOADER_SEC_SIZE + KERNEL64_SEC_SIZE
 	mov ch, 0
