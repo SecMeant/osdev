@@ -88,7 +88,7 @@ txmbuf make_early_txmbuf(void)
 {
 	txmbuf ret;
 	ret.mem = (void*) GPUBUF;
-	ret.cury = 3;
+	ret.cury = 0;
 	ret.curx = 0;
 
 	return ret;
