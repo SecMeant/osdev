@@ -137,10 +137,8 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 
 	setup_pic();
 
-	__asm__ volatile (
-		".intel_syntax noprefix\n"
-		"sti\n"
-		"hlt\n"
-		".att_syntax\n"
-	);
+	__asm__ volatile ("sti\n");
+
+	for(;;)
+		__asm__ volatile ("hlt\n");
 }
