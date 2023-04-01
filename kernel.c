@@ -7,6 +7,19 @@
 
 struct kernel_boot_header boot_header;
 
+static int check_has_apic(void)
+{
+	int ret = 0;
+
+	__asm__ volatile (
+		"mov $1, %%eax\n"
+		"cpuid\n"
+		: "=d" (ret) : : "rax", "ebx", "ecx"
+	);
+
+	return ret & (1ull << 9);
+}
+
 void kmain(struct kernel_boot_header *bios_boot_header)
 {
 	memcpy(&boot_header, bios_boot_header, sizeof(struct kernel_boot_header));
@@ -134,6 +147,13 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	txm_print(&earlytxm, "IRQ #20h  @ ");
 	txm_print_hex(&earlytxm, idtgd_get_64bit_offset(idt[0x20]));
 	txm_line_feed(&earlytxm);
+
+	const int has_apic = check_has_apic();
+	if (!has_apic) {
+		txm_line_feed(&earlytxm);
+		txm_print(&earlytxm, "APIC not supported");
+		panic();
+	}
 
 	setup_pic();
 
