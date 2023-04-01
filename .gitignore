@@ -3,5 +3,8 @@ stage2
 floppy.bin
 boot_info.inc
 kernel64
+kernel64.syms
+compile_commands.json
+.cache/
 .depend
 *.o

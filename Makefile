@@ -2,11 +2,13 @@ CC:=gcc
 AR:=ar
 AS:=as
 LD:=ld
-WC:=/usr/bin/wc
+OBJCOPY:=objcopy
+STRIP:=strip
 SUDO:=sudo
 
 CFLAGS:=-Wall -Wextra -nostdlib -ffreestanding -mno-red-zone -fPIC -std=c17 \
-	-fno-stack-protector -O2 -mno-sse -mno-avx -mno-mmx -mgeneral-regs-only
+	-fno-stack-protector -O2 -mno-sse -mno-avx -mno-mmx -mgeneral-regs-only \
+	-g3 -ggdb
 
 LDFLAGS:=-nostdlib
 
@@ -86,6 +88,9 @@ boot_info.inc: stage2 kernel64
 
 kernel64: x86_64.ld $(KERNEL_OBJS) types.h
 	$(Q)$(LD) $(LDFLAGS) --gc-sections -T x86_64.ld -o $@ $(KERNEL_OBJS)
+	$(Q)$(OBJCOPY) --only-keep-debug $@ $@.syms
+	$(Q)$(STRIP) --strip-all $@
+
 
 floppy.bin: stage1 stage2 kernel64
 	$(Q)cat stage1 stage2 kernel64 > floppy.bin
@@ -98,7 +103,7 @@ stats:
 
 PHONY += clean
 clean:
-	$(Q)rm -f stage1 stage1.o stage2 stage2.o boot_info.inc kernel64 libkernel64.a floppy.bin
+	$(Q)rm -f stage1 stage1.o stage2 stage2.o boot_info.inc kernel64 kernel64.syms libkernel64.a floppy.bin
 	$(Q)rm -f .depend
 	$(Q)rm -f $(KERNEL_OBJS)
 
