@@ -4,6 +4,8 @@
 #include "vm.h"
 #include "irq.h"
 #include "std.h"
+#include "abort.h"
+#include "acpi.h"
 
 struct kernel_boot_header boot_header;
 
@@ -106,16 +108,17 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	va.dirptr = 1;
 	va.pml4 = 0;
 
-	int ret;
-	ret = vmmap_4kb(&heap, pml4, (void*) va.as_u64, heap.begin);
+	const int ret = vmmap_4kb(&heap, pml4, (void*) va.as_u64, heap.begin);
 
 	txm_print(&earlytxm, "VA        = ");
 	txm_print_hex(&earlytxm, va.as_u64);
 	txm_line_feed(&earlytxm);
 
-	txm_print(&earlytxm, "ret       = ");
-	txm_print_hex(&earlytxm, ret);
-	txm_line_feed(&earlytxm);
+	if (ret) {
+		txm_print(&earlytxm, "mapping VA failed");
+		txm_print_hex(&earlytxm, ret);
+		txm_line_feed(&earlytxm);
+	}
 
 	txm_print(&earlytxm, "heap.head = ");
 	txm_print_hex(&earlytxm, (u64) heap.head);
@@ -148,6 +151,17 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	txm_print_hex(&earlytxm, idtgd_get_64bit_offset(idt[0x20]));
 	txm_line_feed(&earlytxm);
 
+	const acpi_table_rsdp *rsdp = acpi_scan_bios_for_rsdp();
+	txm_print(&earlytxm, "RSDP      @ ");
+	txm_print_hex(&earlytxm, (u64)rsdp);
+	txm_line_feed(&earlytxm);
+
+	if (!rsdp) {
+		txm_line_feed(&earlytxm);
+		txm_print(&earlytxm, "Could not find RSDP");
+		panic();
+	}
+
 	const int has_apic = check_has_apic();
 	if (!has_apic) {
 		txm_line_feed(&earlytxm);
@@ -162,3 +176,4 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	for(;;)
 		__asm__ volatile ("hlt\n");
 }
+

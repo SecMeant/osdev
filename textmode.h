@@ -31,7 +31,7 @@ void txm_clear_cur_line(txmbuf *buf);
 void txm_clear_screen(txmbuf *buf);
 txmbuf make_early_txmbuf(void);
 
-static inline void disable_cursor()
+static inline void disable_cursor(void)
 {
 	__asm__ volatile (
 		".intel_syntax noprefix\n"
