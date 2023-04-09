@@ -2,6 +2,6 @@
 
 static inline void barrier()
 {
-	__asm__ volatile("":::);
+	__asm__ volatile(""::: "memory");
 }
 
