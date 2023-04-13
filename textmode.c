@@ -63,6 +63,14 @@ void txm_print(txmbuf *buf, char *s)
 	}
 }
 
+void txm_print_hex_u8(txmbuf *buf, u8 v)
+{
+	char digits[] = "0123456789ABCDEF";
+
+	txm_putc(buf, digits[v >> 4]);
+	txm_putc(buf, digits[v & 0x0f]);
+}
+
 void txm_print_hex(txmbuf *buf, u64 v)
 {
 	char digits[] = "0123456789ABCDEF";

@@ -6,6 +6,7 @@
 
 .global irq_handler
 irq_handler:
+	push rdi
 	push rax
 	push rcx
 	push rdx
@@ -24,6 +25,7 @@ irq_handler:
 	pop rdx
 	pop rcx
 	pop rax
+	pop rdi
 
 	iretq
 

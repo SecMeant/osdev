@@ -6,6 +6,15 @@
 #include "std.h"
 #include "abort.h"
 #include "acpi.h"
+#include "compiler.h"
+#include "msr.h"
+#include "apic.h"
+
+#define KERNEL_BASE_VA 0xc0000000UL
+#define APIC_BASE_SIZE 0x1000UL
+
+// Map APIC registers just before the kernel.
+#define APIC_BASE_VA (KERNEL_BASE_VA - APIC_BASE_SIZE)
 
 struct kernel_boot_header boot_header;
 
@@ -37,11 +46,11 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	txm_line_feed(&earlytxm);
 
 	txm_print(&earlytxm, "Kernel relocated @ 0x");
-	txm_print_hex(&earlytxm, boot_header.kernel_base);
+	txm_print_hex(&earlytxm, boot_header.kernel_phys_base);
 	txm_line_feed(&earlytxm);
 
 	txm_print(&earlytxm, "Kernel end       @ 0x");
-	txm_print_hex(&earlytxm, boot_header.kernel_end);
+	txm_print_hex(&earlytxm, boot_header.kernel_phys_end);
 	txm_line_feed(&earlytxm);
 
 	txm_print(&earlytxm, "PML4 allocated   @ 0x");
@@ -80,7 +89,7 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	txm_print_hex(&earlytxm, (u64) heap.end);
 	txm_line_feed(&earlytxm);
 
-	PML4E *paging = kalloc(&heap, sizeof(PML4E) * 512, 4096);
+	PML4E * volatile paging = kalloc(&heap, sizeof(PML4E) * 512, 4096);
 
 	txm_print(&earlytxm, "Paging    = ");
 	txm_print_hex(&earlytxm, (u64) paging);
@@ -107,6 +116,7 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	va.dir = 0;
 	va.dirptr = 1;
 	va.pml4 = 0;
+	va.reserved = 0;
 
 	const int ret = vmmap_4kb(&heap, pml4, (void*) va.as_u64, heap.begin);
 
@@ -115,10 +125,43 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	txm_line_feed(&earlytxm);
 
 	if (ret) {
-		txm_print(&earlytxm, "mapping VA failed");
+		txm_print(&earlytxm, "mapping VA failed ");
+		txm_putc(&earlytxm, '0');
 		txm_print_hex(&earlytxm, ret);
 		txm_line_feed(&earlytxm);
 	}
+
+	/* Remap kernel to VM and jump to it. */
+	for (u64 p = boot_header.kernel_phys_base, v = KERNEL_BASE_VA; p < boot_header.kernel_phys_end; p += 4096, v += 4096) {
+		if (vmmap_4kb(&heap, pml4, (void*) v, (void*) p)) {
+			txm_print(&earlytxm, "mapping VA failed ");
+			txm_putc(&earlytxm, '2');
+			txm_line_feed(&earlytxm);
+			txm_print_hex(&earlytxm, p);
+			txm_line_feed(&earlytxm);
+			txm_print_hex(&earlytxm, v);
+			txm_line_feed(&earlytxm);
+
+			panic();
+		}
+	}
+
+	__asm__ volatile (
+		"xor %%eax, %%eax\n"
+		"call .L1\n"
+		".L1:\n"
+		"pop %%rax\n"
+		"cmp %[kernel_virt_base], %%eax\n"
+		"jnc .L2\n"
+		"sub %[kernel_phys_base], %%rax\n"
+		"add %[kernel_virt_base] + (.L2 - .L1), %%eax\n"
+		"jmp *%%rax\n"
+		".L2:\n"
+		:
+		: [kernel_phys_base] "r" (boot_header.kernel_phys_base)
+		, [kernel_virt_base] "i" (KERNEL_BASE_VA)
+		: "rax", "rbx", "memory"
+	);
 
 	txm_print(&earlytxm, "heap.head = ");
 	txm_print_hex(&earlytxm, (u64) heap.head);
@@ -151,12 +194,36 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	txm_print_hex(&earlytxm, idtgd_get_64bit_offset(idt[0x20]));
 	txm_line_feed(&earlytxm);
 
-	const acpi_table_rsdp *rsdp = acpi_scan_bios_for_rsdp();
-	txm_print(&earlytxm, "RSDP      @ ");
-	txm_print_hex(&earlytxm, (u64)rsdp);
-	txm_line_feed(&earlytxm);
+	const acpi_table_rsdp * const rsdp = acpi_scan_bios_for_rsdp();
+	const acpi_table_rsdt * rsdt = 0;
+	if (rsdp) {
+		char oem_id[sizeof(rsdp->oem_id) + 1];
+		memcpy(oem_id, rsdp->oem_id, 6);
+		oem_id[6] = 0;
 
-	if (!rsdp) {
+		txm_print(&earlytxm, "Found RSDP@ ");
+		txm_print_hex(&earlytxm, (u64)rsdp);
+		txm_print(&earlytxm, " OEM: ");
+		txm_print(&earlytxm, oem_id);
+		txm_line_feed(&earlytxm);
+		txm_print(&earlytxm, "Found RSDT@ ");
+		txm_print_hex(&earlytxm, rsdp->rsdt_physical_address);
+		txm_print(&earlytxm, " (phys)");
+		txm_line_feed(&earlytxm);
+
+		// Zero extend to u64 and interpret as VA.
+		// FIXME: this will probably stop working at some point, but
+		// for now first 1GB of physical memory is mapped to our
+		// virtual first 1GB.
+		rsdt = (const acpi_table_rsdt*) ((u64) rsdp->rsdt_physical_address);
+
+		if (rsdp->revision >= 2) {
+			txm_print(&earlytxm, "Found XSDT@ ");
+			txm_print_hex(&earlytxm, rsdp->xsdt_physical_address);
+			txm_print(&earlytxm, " (phys)");
+			txm_line_feed(&earlytxm);
+		}
+	} else {
 		txm_line_feed(&earlytxm);
 		txm_print(&earlytxm, "Could not find RSDP");
 		panic();
@@ -169,7 +236,61 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 		panic();
 	}
 
-	setup_pic();
+	struct msr_res_t apic_msr = read_msr(APIC_BASE_MSR);
+	txm_print(&earlytxm, "APIC_MSR: ");
+	txm_print_hex(&earlytxm, (u64)(apic_msr.eax) | (((u64)apic_msr.edx) << 32));
+	txm_line_feed(&earlytxm);
+
+	const u64 apic_phys_base = apic_get_phys_base();
+	txm_print(&earlytxm, "APIC PHYS BASE: ");
+	txm_print_hex(&earlytxm, apic_phys_base);
+	txm_line_feed(&earlytxm);
+
+	// Map APIC to VM
+	if (vmmap_4kb(&heap, pml4, (void*) APIC_BASE_VA, (void*) apic_phys_base)) {
+		txm_print(&earlytxm, "mapping APIC failed with ");
+		txm_print_hex(&earlytxm, ret);
+		txm_line_feed(&earlytxm);
+	}
+
+	struct apic_info *apic_info = kalloc(&heap, sizeof(struct apic_info), 16);
+	*apic_info = acpi_parse_madt(rsdt);
+	txm_print(&earlytxm, "APIC IRQ base: ");
+	txm_print_hex_u8(&earlytxm, apic_info->ioapic_irqbase);
+	txm_line_feed(&earlytxm);
+
+	txm_print(&earlytxm, "PML4: ");
+	txm_print_hex(&earlytxm, (u64) pml4);
+	txm_line_feed(&earlytxm);
+
+	//setup_pic();
+	disable_pic();
+	apic_enable();
+
+	/*
+	 * Configure temporary APIC, just to see if interrupts are working
+	 */
+
+	// Set the Spurious Interrupt Vector Register bit 8 to start receiving interrupts
+	apic_spv_t apic_spv;
+	apic_spv.as_u32 = apic_read(APIC_OFF_SPV);
+
+	apic_spv.enabled = 1;
+	apic_write(APIC_OFF_SPV, apic_spv.as_u32);
+
+	// Set clock divisor
+	const u32 apic_divisor =
+		(apic_read(APIC_OFF_CLOCK_DIVISOR) & 0xfffffff0) | APIC_CLOCK_DIVISOR_BY_1;
+	apic_write(APIC_OFF_CLOCK_DIVISOR, apic_divisor);
+
+	apic_timer_t apic_timer;
+	apic_timer.as_u32 = apic_read(APIC_OFF_LVT_TIMER);
+
+	apic_timer.mode = APIC_TIMER_MODE_PERIODIC;
+	apic_timer.mask = APIC_TIMER_UNMASKED;
+	apic_timer.vector = IRQN_APIC_TIMER;
+	apic_write(APIC_OFF_LVT_TIMER, apic_timer.as_u32);
+	apic_write(APIC_OFF_TIMER_INIT_COUNT, 0x20000000);
 
 	__asm__ volatile ("sti\n");
 

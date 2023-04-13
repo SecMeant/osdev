@@ -7,7 +7,7 @@ STRIP:=strip
 SUDO:=sudo
 
 CFLAGS:=-Wall -Wextra -nostdlib -ffreestanding -mno-red-zone -fPIC -std=c17 \
-	-fno-stack-protector -O2 -mno-sse -mno-avx -mno-mmx -mgeneral-regs-only \
+	-fno-stack-protector -O0 -mno-sse -mno-avx -mno-mmx -mgeneral-regs-only \
 	-g3 -ggdb
 
 LDFLAGS:=-nostdlib

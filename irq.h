@@ -5,6 +5,8 @@
 #define GATE_TYPE_IRQ  14
 #define GATE_TYPE_TRAP 15
 
+#define IRQN_APIC_TIMER 0x20
+
 /* 64-bit IDT Gate Descriptor */
 typedef struct
 {
@@ -85,5 +87,6 @@ static inline u64 idtgd_get_64bit_offset(IDTGD desc)
 extern IDTGD idt[256];
 
 void setup_pic(void);
+void disable_pic(void);
 void load_idt(void);
 

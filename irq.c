@@ -1,8 +1,8 @@
-#include "types.h"
 #include "irq.h"
+#include "apic.h"
 #include "kernel.h"
-
 #include "textmode.h"
+#include "types.h"
 
 extern void irq_handler(void);
 extern void trap_handler(void);
@@ -18,7 +18,7 @@ void load_idt(void)
 
 	// We need to offset address returned by GCC because we don't know
 	// where bootloader loaded us. GCC assumes we are loaded at addr 0.
-	u64 irq_handler_addr = ((u64) irq_handler) + boot_header.kernel_base;
+	u64 irq_handler_addr = ((u64) irq_handler) + boot_header.kernel_phys_base;
 
 	// FIXME: We need proper address calculation, GCC doesn't know at what
 	// address the kernel was loaded so the addresses are all fucked up
@@ -67,11 +67,26 @@ static inline void outb(u16 port, u8 data)
 	);
 }
 
+#define PIC_MASTER_COMMAND_PORT 0x0020
+#define PIC_MASTER_DATA_PORT    0x0021
+#define PIC_SLAVE_COMMAND_PORT  0x00A0
+#define PIC_SLAVE_DATA_PORT     0x00A1
+
 void setup_pic(void)
 {
-	outb(0x20, 0x11);
-	outb(0x21, 0x20);
-	outb(0x21, 0x01);
+	// TODO: We probably have to wait between the outb instructions
+	//       For now, it works in the QEMU so, whatever...
+	outb(PIC_MASTER_COMMAND_PORT, 0x11);
+	outb(PIC_MASTER_DATA_PORT, 0x20);
+	outb(PIC_MASTER_DATA_PORT, 0x01);
+}
+
+void disable_pic(void)
+{
+	// TODO: We probably have to wait between the outb instructions
+	//       For now, it works in the QEMU so, whatever...
+	outb(PIC_MASTER_DATA_PORT, 0xff);
+	outb(PIC_SLAVE_DATA_PORT,  0xff);
 }
 
 struct isr_context
@@ -145,5 +160,9 @@ void isr_default(struct isr_context *ctx)
 
 	printed |= 1;
 
-	outb(0x20, 0x20);
+	// PIC EOI
+	// outb(0x20, 0x20);
+	
+	// APIC EOI
+	apic_write(0xB0, 0);
 }

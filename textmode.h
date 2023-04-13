@@ -25,6 +25,7 @@ extern txmbuf earlytxm;
 
 void txm_putc(txmbuf *buf, char ch);
 void txm_print(txmbuf *buf, char *s);
+void txm_print_hex_u8(txmbuf *buf, u8 v);
 void txm_print_hex(txmbuf *buf, u64 v);
 void txm_line_feed(txmbuf *buf);
 void txm_clear_cur_line(txmbuf *buf);

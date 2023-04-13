@@ -5,8 +5,8 @@
 
 struct kernel_boot_header
 {
-	u64 kernel_base;
-	u64 kernel_end;
+	u64 kernel_phys_base;
+	u64 kernel_phys_end;
 	u64 pml4;
 
 	// We use it to make ram_info array aligned to 16 bytes. This makes
