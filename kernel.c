@@ -9,6 +9,7 @@
 #include "compiler.h"
 #include "msr.h"
 #include "apic.h"
+#include "io.h"
 
 #define KERNEL_BASE_VA 0xc0000000UL
 #define APIC_BASE_SIZE 0x1000UL
@@ -264,33 +265,68 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	txm_line_feed(&earlytxm);
 
 	//setup_pic();
-	disable_pic();
-	apic_enable();
+	//disable_pic();
+	//apic_enable();
 
-	/*
-	 * Configure temporary APIC, just to see if interrupts are working
-	 */
+	///*
+	// * Configure temporary APIC, just to see if interrupts are working
+	// */
 
-	// Set the Spurious Interrupt Vector Register bit 8 to start receiving interrupts
-	apic_spv_t apic_spv;
-	apic_spv.as_u32 = apic_read(APIC_OFF_SPV);
+	//// Set the Spurious Interrupt Vector Register bit 8 to start receiving interrupts
+	//apic_spv_t apic_spv;
+	//apic_spv.as_u32 = apic_read(APIC_OFF_SPV);
 
-	apic_spv.enabled = 1;
-	apic_write(APIC_OFF_SPV, apic_spv.as_u32);
+	//apic_spv.enabled = 1;
+	//apic_write(APIC_OFF_SPV, apic_spv.as_u32);
 
-	// Set clock divisor
-	const u32 apic_divisor =
-		(apic_read(APIC_OFF_CLOCK_DIVISOR) & 0xfffffff0) | APIC_CLOCK_DIVISOR_BY_1;
-	apic_write(APIC_OFF_CLOCK_DIVISOR, apic_divisor);
+	//// Set clock divisor
+	//const u32 apic_divisor =
+	//	(apic_read(APIC_OFF_CLOCK_DIVISOR) & 0xfffffff0) | APIC_CLOCK_DIVISOR_BY_1;
+	//apic_write(APIC_OFF_CLOCK_DIVISOR, apic_divisor);
 
-	apic_timer_t apic_timer;
-	apic_timer.as_u32 = apic_read(APIC_OFF_LVT_TIMER);
+	//apic_timer_t apic_timer;
+	//apic_timer.as_u32 = apic_read(APIC_OFF_LVT_TIMER);
 
-	apic_timer.mode = APIC_TIMER_MODE_PERIODIC;
-	apic_timer.mask = APIC_TIMER_UNMASKED;
-	apic_timer.vector = IRQN_APIC_TIMER;
-	apic_write(APIC_OFF_LVT_TIMER, apic_timer.as_u32);
-	apic_write(APIC_OFF_TIMER_INIT_COUNT, 0x20000000);
+	//apic_timer.mode = APIC_TIMER_MODE_PERIODIC;
+	//apic_timer.mask = APIC_TIMER_UNMASKED;
+	//apic_timer.vector = IRQN_APIC_TIMER;
+	//apic_write(APIC_OFF_LVT_TIMER, apic_timer.as_u32);
+	//apic_write(APIC_OFF_TIMER_INIT_COUNT, 0);
+
+#define PIC1_CMD 0x20
+#define PIC1_DATA 0x21
+#define PIC2_CMD 0xa0
+#define PIC2_DATA 0xa1
+
+// end of intrrupte
+#define PIC_EOI     0x20
+
+#define ICW1_ICW4       0x01    /* ICW4 (not) needed */
+#define ICW1_SINGLE     0x02    /* Single (cascade) mode */
+#define ICW1_INTERVAL4  0x04    /* Call address interval 4 (8) */
+#define ICW1_LEVEL      0x08    /* Level triggered (edge) mode */
+#define ICW1_INIT       0x10    /* Initialization - required! */
+ 
+#define ICW4_8086       0x01    /* 8086/88 (MCS-80/85) mode */
+#define ICW4_AUTO       0x02    /* Auto (normal) EOI */
+#define ICW4_BUF_SLAVE  0x08    /* Buffered mode/slave */
+#define ICW4_BUF_MASTER 0x0C    /* Buffered mode/master */
+#define ICW4_SFNM       0x10    /* Special fully nested (not) */
+
+	outb(PIC1_CMD, ICW1_INIT + ICW1_ICW4);    // starts the initialization sequence (in cascade mode)
+	outb(PIC2_CMD, ICW1_INIT + ICW1_ICW4);
+
+	outb(PIC1_DATA, 0x20);                   // ICW2: Master PIC vector offset
+	outb(PIC2_DATA, 0x28);                   // ICW2: Slave PIC vector offset
+
+	outb(PIC1_DATA, 4);                      // ICW3: tell Master PIC that there is a slave PIC at IRQ2 (0000 0100)
+	outb(PIC2_DATA, 2);                      // ICW3: tell Slave PIC its cascade identity (0000 0010)
+
+	outb(PIC1_DATA, ICW4_8086);
+	outb(PIC2_DATA, ICW4_8086);
+
+	outb(PIC1_DATA, 0x0);                   // clear irq maske, enable all irq in Mister PIC
+	outb(PIC2_DATA, 0x0);                   // clear irq maske, enable all irq in Slave PIC
 
 	__asm__ volatile ("sti\n");
 

@@ -38,10 +38,13 @@
 #define APIC_TIMER_MASKED   1
 
 #define KERNEL_BASE_VA 0xc0000000UL
+// FIXME: APIC and IOAPIC sizes are incorrect (they are way to big now)
 #define APIC_BASE_SIZE 0x1000UL
+#define IOAPIC_BASE_SIZE 0x1000UL
 
 // Map APIC registers just before the kernel.
 #define APIC_BASE_VA (KERNEL_BASE_VA - APIC_BASE_SIZE)
+#define IOAPIC_BASE_VA (APIC_BASE_VA - IOAPIC_BASE_SIZE)
 
 // APIC Spuious Vector Register (offset 0x0f0)
 typedef struct {
@@ -127,6 +130,33 @@ inline static void apic_write(u16 offset, u32 value)
 		panic();
 
 	volatile u32 *reg = (u32*)(((char*) APIC_BASE_VA) + offset);
+	*reg = value;
+
+	barrier();
+}
+
+// Read from the register at offset.
+inline static u32 ioapic_read(u8 offset)
+{
+	volatile u32 *ioapic = (volatile u32*) IOAPIC_BASE_VA;
+	ioapic[0] = offset & 0xff;
+
+	const u32 ret = ioapic[4];
+
+	barrier();
+
+	return ret;
+}
+
+// Write to the register at offset.
+inline static void ioapic_write(u8 offset, u32 value)
+{
+	volatile u32 *ioapic = (volatile u32*) IOAPIC_BASE_VA;
+
+	ioapic[0] = offset & 0xff;
+	ioapic[4] = value;
+
+	volatile u32 *reg = (u32*)(((char*) IOAPIC_BASE_VA) + offset);
 	*reg = value;
 
 	barrier();
