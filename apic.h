@@ -37,11 +37,21 @@
 #define APIC_TIMER_UNMASKED 0
 #define APIC_TIMER_MASKED   1
 
+#define IOAPIC_OFF_IOREGSEL 0x00
+#define IOAPIC_OFF_IOWIN    0x10
+
+#define IOAPIC_REG_IOAPICID     0x00
+#define IOAPIC_REG_IOAPICVER    0x01
+#define IOAPIC_REG_IOAPICARB    0x02
+#define IOAPIC_REG_IOREDTBL(x)  (0x10 + x * 2)
+
 #define KERNEL_BASE_VA 0xc0000000UL
 #define APIC_BASE_SIZE 0x1000UL
+#define IOAPIC_BASE_SIZE 0x1000UL
 
 // Map APIC registers just before the kernel.
 #define APIC_BASE_VA (KERNEL_BASE_VA - APIC_BASE_SIZE)
+#define IOAPIC_BASE_VA (APIC_BASE_VA - IOAPIC_BASE_SIZE)
 
 // APIC Spuious Vector Register (offset 0x0f0)
 typedef struct {
@@ -131,3 +141,16 @@ inline static void apic_write(u16 offset, u32 value)
 
 	barrier();
 }
+
+inline static void ioapic_write(const u64 apic_base, const u8 offset, const u32 val)
+{
+    *(volatile u32*)(apic_base + IOAPIC_OFF_IOREGSEL) = offset;
+    *(volatile u32*)(apic_base + IOAPIC_OFF_IOWIN) = val;
+}
+
+inline static u32 ioapic_read(const u64 apic_base, const u8 offset)
+{
+    *(volatile u32*)(apic_base + IOAPIC_OFF_IOREGSEL) = offset;
+    return *(volatile u32*)(apic_base + IOAPIC_OFF_IOWIN);
+}
+

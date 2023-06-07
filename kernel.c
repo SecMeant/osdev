@@ -248,8 +248,7 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 
 	// Map APIC to VM
 	if (vmmap_4kb(&heap, pml4, (void*) APIC_BASE_VA, (void*) apic_phys_base)) {
-		txm_print(&earlytxm, "mapping APIC failed with ");
-		txm_print_hex(&earlytxm, ret);
+		txm_print(&earlytxm, "mapping APIC failed.");
 		txm_line_feed(&earlytxm);
 	}
 
@@ -291,6 +290,28 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	apic_timer.vector = IRQN_APIC_TIMER;
 	apic_write(APIC_OFF_LVT_TIMER, apic_timer.as_u32);
 	apic_write(APIC_OFF_TIMER_INIT_COUNT, 0x20000000);
+
+	txm_print(&earlytxm, "IOAPIC @ ");
+	txm_print_hex(&earlytxm, apic_info->ioapic_ptr);
+	txm_line_feed(&earlytxm);
+
+	if (vmmap_4kb(&heap, pml4, (void*) IOAPIC_BASE_VA, (void*) apic_info->ioapic_ptr)) {
+		txm_print(&earlytxm, "mapping IOAPIC failed.");
+		txm_line_feed(&earlytxm);
+	}
+
+	txm_print(&earlytxm, "IOAPIC IRQ BASE: ");
+	txm_print_hex_u8(&earlytxm, apic_info->ioapic_irqbase);
+	txm_line_feed(&earlytxm);
+
+	txm_print(&earlytxm, "IOAPIC: ");
+	for (int i = 0; i < 4; ++i) {
+		txm_print_hex(&earlytxm, ioapic_read(IOAPIC_BASE_VA, i));
+		txm_print(&earlytxm, " ");
+	}
+	txm_line_feed(&earlytxm);
+
+	setup_ioapic(17);
 
 	__asm__ volatile ("sti\n");
 

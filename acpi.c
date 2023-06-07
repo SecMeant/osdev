@@ -87,6 +87,31 @@ static void acpi_parse_madt_devinfo(const u8 *devinfo, struct apic_info *ret)
 				break;
 			}
 
+		/* IO/APIC Interrupt Source Override */
+		case 2: {
+				const u8 bus_source = devinfo[2];
+				const u8 irq_source = devinfo[3];
+				const u32 global_sys_irq = *((u32*) &devinfo[4]);
+				const u16 flags = *((u16*) &devinfo[8]);
+
+				//txm_print(&earlytxm, "MADT: IRQ Source Override: ");
+				//txm_line_feed(&earlytxm);
+				//txm_print(&earlytxm, "    ");
+				//txm_print_hex(&earlytxm, bus_source);
+				//txm_line_feed(&earlytxm);
+				//txm_print(&earlytxm, "    ");
+				//txm_print_hex(&earlytxm, irq_source);
+				//txm_line_feed(&earlytxm);
+				//txm_print(&earlytxm, "    ");
+				//txm_print_hex(&earlytxm, global_sys_irq);
+				//txm_line_feed(&earlytxm);
+				//txm_print(&earlytxm, "    ");
+				//txm_print_hex(&earlytxm, flags);
+				//txm_line_feed(&earlytxm);
+
+				break;
+			}
+
 		/* Local APIC address override */
 		case 5: {
 				const u64 address = *((u64*) &devinfo[4]);
@@ -126,9 +151,6 @@ struct apic_info acpi_parse_madt(const acpi_table_rsdt *rsdt)
 		const acpi_table_madt * const madt = (const acpi_table_madt*) candidate;
 		ret.local_apic_ptr = madt->local_apic_address;
 
-		txm_print(&earlytxm, "APIC devices:");
-		txm_line_feed(&earlytxm);
-
 		/*
 		 * Parse all devices.
 		 * Each device beings with a header:
@@ -142,11 +164,7 @@ struct apic_info acpi_parse_madt(const acpi_table_rsdt *rsdt)
 		const u8 *       devinfo = &madt->device_info[0];
 		const u8 * const devinfo_end = ((const u8*)madt) + madt->length;
 		while (devinfo < devinfo_end) {
-			const u8 type = devinfo[0];
 			const u8 length = devinfo[1];
-
-			txm_print_hex_u8(&earlytxm, type);
-			txm_putc(&earlytxm, ' ');
 
 			acpi_parse_madt_devinfo(devinfo, &ret);
 

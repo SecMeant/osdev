@@ -1,10 +1,12 @@
 #include "irq.h"
 #include "apic.h"
+#include "io.h"
 #include "kernel.h"
 #include "textmode.h"
 #include "types.h"
 
 extern void irq_handler(void);
+extern void irq_handler_keyboard(void);
 extern void trap_handler(void);
 
 IDTGD idt[256];
@@ -19,21 +21,17 @@ void load_idt(void)
 	// We need to offset address returned by GCC because we don't know
 	// where bootloader loaded us. GCC assumes we are loaded at addr 0.
 	u64 irq_handler_addr = ((u64) irq_handler) + boot_header.kernel_phys_base;
+	u64 irq_handler_keyboard_addr = ((u64) irq_handler_keyboard) + boot_header.kernel_phys_base;
 
 	// FIXME: We need proper address calculation, GCC doesn't know at what
 	// address the kernel was loaded so the addresses are all fucked up
 	// here.
 	for (u64 i = 0; i < 256; ++i) {
 		switch(i) {
-			case 8:
-			case 10:
-			case 11:
-			case 12:
-			case 14:
-			case 17:
-			case 21:
-			case 29:
-			case 30:
+			case 0x21:
+				idt[i] = idtgd_set_64bit_offset(make_64bit_idtgd(), irq_handler_keyboard_addr);
+				idt[i].type = GATE_TYPE_IRQ;
+				break;
 
 			default:
 				idt[i] = idtgd_set_64bit_offset(make_64bit_idtgd(), irq_handler_addr);
@@ -54,16 +52,6 @@ void load_idt(void)
 	__asm__ volatile (
 		"lidt %[idtr]\n"
 		: : [idtr] "m" (idtr)
-	);
-}
-
-static inline void outb(u16 port, u8 data)
-{
-	__asm__ volatile (
-		".intel_syntax noprefix\n"
-		"outb %[port], %[data]\n"
-		".att_syntax\n"
-		: : [port] "d" (port), [data] "a" (data)
 	);
 }
 
@@ -89,6 +77,29 @@ void disable_pic(void)
 	outb(PIC_SLAVE_DATA_PORT,  0xff);
 }
 
+void setup_ioapic(const u32 ioapic_redir_entries)
+{
+	for (u32 i = 0; i < ioapic_redir_entries; ++i) {
+		// Read redirection entry and remove mask bit.
+		u32 redir_entry = ioapic_read(IOAPIC_BASE_VA, IOAPIC_REG_IOREDTBL(i));
+
+		// Mask all, but keyboard irq
+		const u32 mask_bit = 1u << 16u;
+		if (i == 1)
+			redir_entry &= (~mask_bit);
+		else
+			redir_entry |= mask_bit;
+
+		// Level triggered
+		redir_entry |= (1u << 15);
+
+		// Vector number
+		redir_entry |= 0x20 + i;
+
+		ioapic_write(IOAPIC_BASE_VA, IOAPIC_REG_IOREDTBL(i), redir_entry);
+	}
+}
+
 struct isr_context
 {
 	u64 r11;
@@ -107,8 +118,9 @@ struct isr_context
 
 void isr_default(struct isr_context *ctx)
 {
+	(void) ctx;
+#if 0
 	static int printed = 0;
-
 	if (!printed) {
 		txm_print(&earlytxm, "ISR CONTEXT: ");
 		txm_line_feed(&earlytxm);
@@ -159,6 +171,7 @@ void isr_default(struct isr_context *ctx)
 	}
 
 	printed |= 1;
+#endif
 
 	// PIC EOI
 	// outb(0x20, 0x20);
@@ -166,3 +179,26 @@ void isr_default(struct isr_context *ctx)
 	// APIC EOI
 	apic_write(0xB0, 0);
 }
+
+void isr_keyboard(struct isr_context *ctx)
+{
+	(void) ctx;
+
+	txm_print(&earlytxm, "GOT KEYBOARD IRQ");
+	txm_line_feed(&earlytxm);
+
+	if ((inb(0x64) & 0x01) == 0)
+	       return;
+
+	u8 sc = inb(0x60);
+	txm_print(&earlytxm, "SC: ");
+	txm_print_hex_u8(&earlytxm, sc);
+	txm_line_feed(&earlytxm);
+
+	// PIC EOI
+	//outb(0x20, 0x20);
+
+	// APIC EOI
+	apic_write(0xB0, 0);
+}
+

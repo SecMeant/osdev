@@ -88,5 +88,6 @@ extern IDTGD idt[256];
 
 void setup_pic(void);
 void disable_pic(void);
+void setup_ioapic(const u32 ioapic_redir_entries);
 void load_idt(void);
 
