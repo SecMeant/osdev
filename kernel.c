@@ -31,6 +31,13 @@ static int check_has_apic(void)
 	return ret & (1ull << 9);
 }
 
+static u32 ioapic_read_pin_count(void)
+{
+	const u32 ret = ioapic_read(IOAPIC_BASE_VA, IOAPIC_REG_IOAPICVER);
+
+	return ((ret >> 16) & 0xff) + 1;
+}
+
 void kmain(struct kernel_boot_header *bios_boot_header)
 {
 	memcpy(&boot_header, bios_boot_header, sizeof(struct kernel_boot_header));
@@ -311,7 +318,11 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	}
 	txm_line_feed(&earlytxm);
 
-	setup_ioapic(17);
+	const u32 ioapic_pins = ioapic_read_pin_count();
+	txm_print(&earlytxm, "IOAPIC pins: ");
+	txm_print_hex_u8(&earlytxm, ioapic_pins);
+	txm_line_feed(&earlytxm);
+	setup_ioapic(ioapic_pins);
 
 	__asm__ volatile ("sti\n");
 
