@@ -296,7 +296,7 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	apic_timer.mask = APIC_TIMER_UNMASKED;
 	apic_timer.vector = IRQN_APIC_TIMER;
 	apic_write(APIC_OFF_LVT_TIMER, apic_timer.as_u32);
-	apic_write(APIC_OFF_TIMER_INIT_COUNT, 0x20000000);
+	apic_write(APIC_OFF_TIMER_INIT_COUNT, 0x00000000);
 
 	txm_print(&earlytxm, "IOAPIC @ ");
 	txm_print_hex(&earlytxm, apic_info->ioapic_ptr);
@@ -325,6 +325,11 @@ void kmain(struct kernel_boot_header *bios_boot_header)
 	setup_ioapic(ioapic_pins);
 
 	__asm__ volatile ("sti\n");
+
+	__asm__ volatile ("int $3");
+	__asm__ volatile ("int $3");
+	__asm__ volatile ("int $3");
+	__asm__ volatile ("int $3");
 
 	for(;;)
 		__asm__ volatile ("hlt\n");

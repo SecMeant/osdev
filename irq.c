@@ -8,6 +8,7 @@
 extern void irq_handler(void);
 extern void irq_handler_keyboard(void);
 extern void trap_handler(void);
+extern void exception_handler_0(void);
 
 IDTGD idt[256];
 
@@ -22,12 +23,18 @@ void load_idt(void)
 	// where bootloader loaded us. GCC assumes we are loaded at addr 0.
 	u64 irq_handler_addr = ((u64) irq_handler) + boot_header.kernel_phys_base;
 	u64 irq_handler_keyboard_addr = ((u64) irq_handler_keyboard) + boot_header.kernel_phys_base;
+	u64 exception_common_addr = ((u64) exception_handler_0) + boot_header.kernel_phys_base;
 
 	// FIXME: We need proper address calculation, GCC doesn't know at what
 	// address the kernel was loaded so the addresses are all fucked up
 	// here.
 	for (u64 i = 0; i < 256; ++i) {
 		switch(i) {
+			case 0x00 ... 0x1f:
+				idt[i] = idtgd_set_64bit_offset(make_64bit_idtgd(), exception_common_addr);
+				idt[i].type = GATE_TYPE_IRQ;
+				break;
+
 			case 0x21:
 				idt[i] = idtgd_set_64bit_offset(make_64bit_idtgd(), irq_handler_keyboard_addr);
 				idt[i].type = GATE_TYPE_IRQ;
@@ -109,6 +116,9 @@ struct isr_context
 	u64 rdx;
 	u64 rcx;
 	u64 rax;
+	u64 rdi;
+	u64 excpn;
+	u64 errc;
 	u64 rip;
 	u64 cs;
 	u64 rflags;
@@ -119,6 +129,13 @@ struct isr_context
 void isr_default(struct isr_context *ctx)
 {
 	(void) ctx;
+
+	txm_print(&earlytxm, "ISR: ");
+	txm_print_hex(&earlytxm, ctx->excpn);
+	txm_print(&earlytxm, " ");
+	txm_print_hex(&earlytxm, ctx->errc);
+	txm_line_feed(&earlytxm);
+
 #if 0
 	static int printed = 0;
 	if (!printed) {
@@ -151,6 +168,10 @@ void isr_default(struct isr_context *ctx)
 
 		txm_print(&earlytxm, "    RAX: ");
 		txm_print_hex(&earlytxm, ctx->rax);
+		txm_line_feed(&earlytxm);
+
+		txm_print(&earlytxm, "    RDI: ");
+		txm_print_hex(&earlytxm, ctx->rdi);
 		txm_line_feed(&earlytxm);
 
 		txm_print(&earlytxm, "    RIP: ");
