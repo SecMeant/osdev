@@ -32,7 +32,7 @@ u8 memcmp(const void *_p0, const void *_p1, u64 size)
 
 	/* Don't do anything funky for now - memory might not be aligned. */
 	for (u64 i = 0; i < size; ++i) {
-		const u8 diff = *p0 - *p1;
+		const u8 diff = p0[i] - p1[i];
 		if (diff != 0)
 			return diff;
 	}
